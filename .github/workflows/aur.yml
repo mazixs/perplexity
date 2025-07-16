@@ -27,7 +27,7 @@ jobs:
       - name: Setup Arch Linux environment
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git
+          pacman -S --noconfirm base-devel git pacman-contrib
           useradd -m builder
           echo "builder ALL=(ALL) NOPASSWD: /usr/bin/pacman" >> /etc/sudoers
 
@@ -43,6 +43,8 @@ jobs:
           # Получаем версию из тега (только для тегов)
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             TAG_VERSION="${GITHUB_REF_NAME}"
+            # Убираем префикс 'v' если есть
+            TAG_VERSION="${TAG_VERSION#v}"
             echo "Updating to version: $TAG_VERSION"
             
             # Обновляем pkgver если есть в PKGBUILD
@@ -53,6 +55,12 @@ jobs:
             
             # Сбрасываем pkgrel на 1 для новой версии
             sudo -u builder sed -i 's/pkgrel=.*/pkgrel=1/' PKGBUILD
+          fi
+          
+          # Проверяем что updpkgsums доступен
+          if ! command -v updpkgsums &> /dev/null; then
+            echo "ERROR: updpkgsums not found! Installing pacman-contrib..."
+            pacman -S --noconfirm pacman-contrib
           fi
           
           # Обновляем контрольные суммы
