@@ -32,7 +32,6 @@ jobs:
           # Добавляем не-root пользователя
           useradd -m builduser
           echo "builduser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-          chown -R builduser:builduser /__w
 
       - name: Generate checksums and lint PKGBUILD
         working-directory: aur
