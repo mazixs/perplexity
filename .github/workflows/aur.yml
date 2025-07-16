@@ -23,7 +23,7 @@ jobs:
       - name: Initialize pacman and install dependencies
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git namcap devtools sudo
+          pacman -S --noconfirm base-devel git namcap devtools sudo pacman-contrib
 
           # Init GPG (нужно для makepkg)
           pacman-key --init
