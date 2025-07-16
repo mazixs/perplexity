@@ -36,7 +36,7 @@ app.asar  app-update.yml  elevate.exe  todesktop-runtime-config.json
      ~/Загрузки/Perplexity Setup 1.1.3/resources                                                                     16:29:48   
 ❯ 
 далее мы делаем обход и распаковываем asar
-npx asar extract app.asar app-src
+npx asar extract app.asar app-src1
 
 Получаем папку 
 app-src
