@@ -1,58 +1,28 @@
-name: Build, Check and Publish PKGBUILD
+name: Publish to AUR
 
 on:
   push:
     tags:
       - '*'
-  pull_request:
-    paths:
-      - 'aur/**'
-      - '.github/workflows/aur.yml'
-  workflow_dispatch:
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
 
-      - name: Initialize pacman and install dependencies
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git namcap devtools sudo pacman-contrib
-
-          # Init GPG (нужно для makepkg)
-          pacman-key --init
-          pacman-key --populate archlinux
-
-          # Добавляем не-root пользователя
-          useradd -m builduser
-          echo "builduser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-      - name: Generate checksums and lint PKGBUILD
-        working-directory: aur
-        run: |
-          sudo -u builduser updpkgsums
-          sudo -u builduser namcap PKGBUILD
-
-      - name: Build and test package
-        working-directory: aur
-        run: |
-          sudo -u builduser makepkg --nodeps --cleanbuild
-          # ❗️если используешь check(), добавь строку ниже
-          # sudo -u builduser makepkg --check --nodeps --cleanbuild
-
       - name: Publish to AUR
-        if: startsWith(github.ref, 'refs/tags/')
         uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
         with:
           pkgname: perplexity
           pkgbuild: aur/PKGBUILD
+          # Автоматическое обновление checksums
+          updpkgsums: true
+          # Автоматическое тестирование сборки
+          test: true
+          # Учётные данные
           commit_username: ${{ secrets.AUR_USERNAME }}
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: "auto: update package"
+          commit_message: "Update to ${{ github.ref_name }}"
