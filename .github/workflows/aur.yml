@@ -27,54 +27,82 @@ jobs:
       - name: Setup Arch Linux environment
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git pacman-contrib
+          pacman -S --noconfirm base-devel git pacman-contrib curl
           useradd -m builder
           echo "builder ALL=(ALL) NOPASSWD: /usr/bin/pacman" >> /etc/sudoers
 
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Update PKGBUILD and generate files
+      - name: Analyze and update PKGBUILD
         working-directory: aur
         run: |
           # Передаём права пользователю
           chown -R builder:builder .
+          
+          # Показываем текущий PKGBUILD для диагностики
+          echo "📋 Current PKGBUILD source array:"
+          grep -A 10 "source=(" PKGBUILD || echo "No source array found"
           
           # Получаем версию из тега (только для тегов)
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             TAG_VERSION="${GITHUB_REF_NAME}"
             # Убираем префикс 'v' если есть
             TAG_VERSION="${TAG_VERSION#v}"
-            echo "Updating to version: $TAG_VERSION"
+            echo "🏷️ Updating to version: $TAG_VERSION"
             
-            # Обновляем pkgver если есть в PKGBUILD
+            # Проверяем наличие pkgver в PKGBUILD
             if grep -q "pkgver=" PKGBUILD; then
+              OLD_VERSION=$(grep "pkgver=" PKGBUILD | cut -d'=' -f2)
+              echo "📦 Old version: $OLD_VERSION"
+              echo "📦 New version: $TAG_VERSION"
+              
+              # Обновляем pkgver
               sudo -u builder sed -i "s/pkgver=.*/pkgver=$TAG_VERSION/" PKGBUILD
-              echo "Updated pkgver to $TAG_VERSION"
+              
+              # Сбрасываем pkgrel на 1
+              sudo -u builder sed -i 's/pkgrel=.*/pkgrel=1/' PKGBUILD
+              
+              echo "✅ Updated PKGBUILD versions"
             fi
-            
-            # Сбрасываем pkgrel на 1 для новой версии
-            sudo -u builder sed -i 's/pkgrel=.*/pkgrel=1/' PKGBUILD
           fi
           
-          # Проверяем что updpkgsums доступен
-          if ! command -v updpkgsums &> /dev/null; then
-            echo "ERROR: updpkgsums not found! Installing pacman-contrib..."
-            pacman -S --noconfirm pacman-contrib
-          fi
+          # Проверяем URL'ы в source array перед обновлением checksums
+          echo "🔍 Checking source URLs availability..."
+          source PKGBUILD  # Загружаем переменные из PKGBUILD
+          
+          # Проверяем каждый URL в source array
+          for src in "${source[@]}"; do
+            # Пропускаем локальные файлы и git репозитории
+            if [[ "$src" =~ ^https?:// ]]; then
+              echo "Checking: $src"
+              if curl --head --silent --fail "$src" >/dev/null 2>&1; then
+                echo "✅ Available: $src"
+              else
+                echo "❌ NOT AVAILABLE: $src"
+                echo "⚠️ This may cause updpkgsums to fail"
+              fi
+            fi
+          done
           
           # Обновляем контрольные суммы
-          echo "Updating checksums..."
-          sudo -u builder updpkgsums
+          echo "🔄 Updating checksums..."
+          if sudo -u builder updpkgsums; then
+            echo "✅ Checksums updated successfully"
+          else
+            echo "❌ Failed to update checksums"
+            echo "📋 This usually means source files are not available"
+            exit 1
+          fi
           
           # Генерируем актуальный .SRCINFO
-          echo "Generating .SRCINFO..."
+          echo "📄 Generating .SRCINFO..."
           sudo -u builder makepkg --printsrcinfo > .SRCINFO
 
       - name: Test PKGBUILD build
         working-directory: aur
         run: |
-          # Тестируем сборку (всегда)
+          echo "🔨 Testing PKGBUILD build..."
           sudo -u builder makepkg --syncdeps --noconfirm --rmdeps --clean
 
       - name: Publish to AUR
