@@ -1,0 +1,51 @@
+name: Build, Check and Publish PKGBUILD
+
+on:
+  push:
+    tags:
+      - '*'
+    paths:
+      - 'aur/**'
+      - '.github/workflows/aur.yml'
+  pull_request:
+    paths:
+      - 'aur/**'
+      - '.github/workflows/aur.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm base-devel git namcap
+
+      - name: Prepare build dir
+        run: |
+          cd aur
+          updpkgsums
+          makepkg --nobuild --nodeps --cleanbuild
+
+      - name: Lint PKGBUILD
+        run: |
+          cd aur
+          namcap PKGBUILD
+
+      - name: Test build
+        run: |
+          cd aur
+          makepkg --check --nodeps --cleanbuild
+
+      - name: Publish to AUR
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+        with:
+          pkgname: perplexity
+          pkgbuild: aur/PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "auto: update package" 

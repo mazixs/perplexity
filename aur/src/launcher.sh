@@ -1,0 +1,1 @@
+/home/mazix/Документы/perplexity/aur/launcher.sh

@@ -1,0 +1,45 @@
+# Артефакты сборки и временные файлы
+*.tar.gz
+*.tar.xz
+*.zip
+*.log
+*.bak
+*.swp
+*.tmp
+
+# makepkg/AUR
+*.pkg.tar.*
+*.src.tar.*
+*.sig
+pkg/
+build/
+
+# Кэш и пользовательские данные
+.cache/
+config/
+PerplexitySetup/
+
+# Python
+__pycache__/
+*.pyc
+
+# Node/Electron
+node_modules/
+
+# Локальные настройки IDE
+.vscode/
+.idea/
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# Конфиги пользователя
+*.conf
+!usr/lib/perplexity/default.conf
+
+# Логи
+logs/
+
+# Документация (генерируемая)
+docs/*.html 
