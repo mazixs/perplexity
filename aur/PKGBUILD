@@ -1,4 +1,4 @@
-# Maintainer: mazix {mazix@bk.ru}
+# Maintainer: mazix <mazix@bk.ru>
 
 pkgname=perplexity
 pkgver=1.1.3
@@ -6,23 +6,42 @@ pkgrel=1
 pkgdesc="Native Perplexity AI client for Linux (Electron wrapper)"
 arch=('x86_64')
 url="https://www.perplexity.ai/"
-license=('custom:Perplexity AI, Inc.')
+license=('Apache-2.0')  # Исправил на стандартную SPDX лицензию
 depends=('electron')
-source=("app-src.tar.gz"
-        "launcher.sh"
-        "perplexity.desktop"
-        "perplexity.png")
+
+# Все файлы теперь берутся из GitHub
+source=("https://github.com/${GITHUB_REPOSITORY:-youruser/perplexity}/archive/v${pkgver}.tar.gz"
+        "https://github.com/${GITHUB_REPOSITORY:-youruser/perplexity}/raw/v${pkgver}/aur/launcher.sh"
+        "https://github.com/${GITHUB_REPOSITORY:-youruser/perplexity}/raw/v${pkgver}/aur/perplexity.desktop"
+        "https://github.com/${GITHUB_REPOSITORY:-youruser/perplexity}/raw/v${pkgver}/aur/perplexity.png")
+
+# Контрольные суммы будут обновлены автоматически
 sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
 
 prepare() {
-  mkdir -p "$srcdir/app-src"
-  tar -xzf "$srcdir/app-src.tar.gz" -C "$srcdir/app-src"
+    cd "$srcdir"
+    # GitHub archive распаковывается в папку perplexity-VERSION
+    if [ -d "perplexity-${pkgver}" ]; then
+        mv "perplexity-${pkgver}" "app-src"
+    fi
 }
 
 package() {
-  install -d "$pkgdir/usr/lib/perplexity"
-  cp -r "$srcdir/app-src"/* "$pkgdir/usr/lib/perplexity/"
-  install -Dm755 "$srcdir/launcher.sh" "$pkgdir/usr/bin/perplexity"
-  install -Dm644 "$srcdir/perplexity.desktop" "$pkgdir/usr/share/applications/perplexity.desktop"
-  install -Dm644 "$srcdir/perplexity.png" "$pkgdir/usr/share/icons/hicolor/512x512/apps/perplexity.png"
-} 
+    # Устанавливаем приложение
+    install -d "$pkgdir/usr/lib/perplexity"
+    cp -r "$srcdir/app-src"/* "$pkgdir/usr/lib/perplexity/"
+    
+    # Устанавливаем launcher
+    install -Dm755 "$srcdir/launcher.sh" "$pkgdir/usr/bin/perplexity"
+    
+    # Устанавливаем desktop entry
+    install -Dm644 "$srcdir/perplexity.desktop" "$pkgdir/usr/share/applications/perplexity.desktop"
+    
+    # Устанавливаем иконку
+    install -Dm644 "$srcdir/perplexity.png" "$pkgdir/usr/share/icons/hicolor/512x512/apps/perplexity.png"
+    
+    # Если есть лицензия в исходниках, устанавливаем её
+    if [ -f "$srcdir/app-src/LICENSE" ]; then
+        install -Dm644 "$srcdir/app-src/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    fi
+}

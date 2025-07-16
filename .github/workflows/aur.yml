@@ -13,67 +13,43 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
     steps:
-      - name: Cache pacman packages
-        uses: actions/cache@v4.2.3
-        with:
-          path: /var/cache/pacman/pkg
-          key: pacman-${{ runner.os }}-${{ hashFiles('aur/PKGBUILD') }}
-          restore-keys: |
-            pacman-${{ runner.os }}-
-
-      - name: Setup Arch Linux environment
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git pacman-contrib curl
-          useradd -m builder
-          echo "builder ALL=(ALL) NOPASSWD: /usr/bin/pacman" >> /etc/sudoers
-
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
 
-      - name: Update PKGBUILD version only
-        working-directory: aur
+      - name: Update PKGBUILD version for tags
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
-          # Передаём права пользователю
-          chown -R builder:builder .
+          # Получаем версию из тега
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          echo "🏷️ Updating to version: $TAG_VERSION"
           
-          # Получаем версию из тега (только для тегов)
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            TAG_VERSION="${GITHUB_REF_NAME}"
-            # Убираем префикс 'v' если есть
-            TAG_VERSION="${TAG_VERSION#v}"
-            echo "🏷️ Updating to version: $TAG_VERSION"
-            
-            # Обновляем только pkgver и pkgrel
-            if grep -q "pkgver=" PKGBUILD; then
-              sudo -u builder sed -i "s/pkgver=.*/pkgver=$TAG_VERSION/" PKGBUILD
-              sudo -u builder sed -i 's/pkgrel=.*/pkgrel=1/' PKGBUILD
-              echo "✅ Updated PKGBUILD versions"
-            fi
-          fi
+          # Обновляем pkgver и pkgrel в PKGBUILD
+          sed -i "s/pkgver=.*/pkgver=$TAG_VERSION/" aur/PKGBUILD
+          sed -i 's/pkgrel=.*/pkgrel=1/' aur/PKGBUILD
           
-          # Показываем содержимое source array для диагностики
-          echo "📋 Current PKGBUILD source array:"
-          grep -A 5 "source=(" PKGBUILD || echo "No source array found"
-
-      - name: Test PKGBUILD build (без checksums)
-        working-directory: aur
-        run: |
-          echo "🔨 Testing PKGBUILD structure (no build)..."
-          sudo -u builder makepkg --printsrcinfo > .SRCINFO
-          echo "✅ PKGBUILD structure is valid"
+          # Исправляем source array для GitHub URLs
+          sed -i 's|"app-src.tar.gz"|"https://github.com/${{ github.repository }}/archive/v${pkgver}.tar.gz"|' aur/PKGBUILD
+          sed -i 's|"launcher.sh"|"https://github.com/${{ github.repository }}/raw/v${pkgver}/aur/launcher.sh"|' aur/PKGBUILD
+          sed -i 's|"perplexity.desktop"|"https://github.com/${{ github.repository }}/raw/v${pkgver}/aur/perplexity.desktop"|' aur/PKGBUILD
+          sed -i 's|"perplexity.png"|"https://github.com/${{ github.repository }}/raw/v${pkgver}/aur/perplexity.png"|' aur/PKGBUILD
+          
+          echo "✅ Updated PKGBUILD for version $TAG_VERSION"
 
       - name: Publish to AUR
         if: startsWith(github.ref, 'refs/tags/')
         uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
         with:
           pkgname: perplexity
+          # Action сам найдет файл в подпапке
           pkgbuild: aur/PKGBUILD
-          assets: aur/.SRCINFO
-          # Пусть action сам обновляет checksums и тестирует
+          # Все дополнительные файлы из подпапки aur/
+          assets: |
+            aur/.SRCINFO
+            aur/launcher.sh
+            aur/perplexity.desktop
+            aur/perplexity.png
+          # Action сам обновит checksums и протестирует
           updpkgsums: true
           test: true
           test_flags: '--clean --cleanbuild --syncdeps --noconfirm'
