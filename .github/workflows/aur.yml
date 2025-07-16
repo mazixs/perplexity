@@ -27,60 +27,44 @@ jobs:
       - name: Setup Arch Linux environment
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git pacman-contrib
+          pacman -S --noconfirm base-devel git pacman-contrib curl
           useradd -m builder
           echo "builder ALL=(ALL) NOPASSWD: /usr/bin/pacman" >> /etc/sudoers
 
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
 
-      - name: Update PKGBUILD and generate files
+      - name: Update PKGBUILD version only
         working-directory: aur
         run: |
           # Передаём права пользователю
           chown -R builder:builder .
-          
-          # Сначала обновляем контрольные суммы с текущей версией
-          echo "Updating checksums for current version..."
-          sudo -u builder updpkgsums
           
           # Получаем версию из тега (только для тегов)
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             TAG_VERSION="${GITHUB_REF_NAME}"
             # Убираем префикс 'v' если есть
             TAG_VERSION="${TAG_VERSION#v}"
-            echo "Updating to version: $TAG_VERSION"
+            echo "🏷️ Updating to version: $TAG_VERSION"
             
-            # Обновляем pkgver если есть в PKGBUILD
+            # Обновляем только pkgver и pkgrel
             if grep -q "pkgver=" PKGBUILD; then
               sudo -u builder sed -i "s/pkgver=.*/pkgver=$TAG_VERSION/" PKGBUILD
-              echo "Updated pkgver to $TAG_VERSION"
-            fi
-            
-            # Сбрасываем pkgrel на 1 для новой версии
-            sudo -u builder sed -i 's/pkgrel=.*/pkgrel=1/' PKGBUILD
-            
-            # Проверяем доступность новых исходников
-            echo "Checking if new version sources are available..."
-            if sudo -u builder makepkg --nobuild --nodeps 2>/dev/null; then
-              echo "New sources available, updating checksums..."
-              sudo -u builder updpkgsums
-            else
-              echo "⚠️ Warning: Cannot fetch sources for new version $TAG_VERSION"
-              echo "This might mean the release is not yet available upstream."
-              echo "Using existing checksums..."
+              sudo -u builder sed -i 's/pkgrel=.*/pkgrel=1/' PKGBUILD
+              echo "✅ Updated PKGBUILD versions"
             fi
           fi
           
-          # Генерируем актуальный .SRCINFO
-          echo "Generating .SRCINFO..."
-          sudo -u builder makepkg --printsrcinfo > .SRCINFO
+          # Показываем содержимое source array для диагностики
+          echo "📋 Current PKGBUILD source array:"
+          grep -A 5 "source=(" PKGBUILD || echo "No source array found"
 
-      - name: Test PKGBUILD build
+      - name: Test PKGBUILD build (без checksums)
         working-directory: aur
         run: |
-          # Тестируем сборку (всегда)
-          sudo -u builder makepkg --syncdeps --noconfirm --rmdeps --clean
+          echo "🔨 Testing PKGBUILD structure (no build)..."
+          sudo -u builder makepkg --printsrcinfo > .SRCINFO
+          echo "✅ PKGBUILD structure is valid"
 
       - name: Publish to AUR
         if: startsWith(github.ref, 'refs/tags/')
@@ -89,6 +73,10 @@ jobs:
           pkgname: perplexity
           pkgbuild: aur/PKGBUILD
           assets: aur/.SRCINFO
+          # Пусть action сам обновляет checksums и тестирует
+          updpkgsums: true
+          test: true
+          test_flags: '--clean --cleanbuild --syncdeps --noconfirm'
           commit_username: ${{ secrets.AUR_USERNAME }}
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
