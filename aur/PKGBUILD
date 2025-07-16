@@ -6,42 +6,81 @@ pkgrel=1
 pkgdesc="Native Perplexity AI client for Linux (Electron wrapper)"
 arch=('x86_64')
 url="https://www.perplexity.ai/"
-license=('Apache-2.0')  # Исправил на стандартную SPDX лицензию
+license=('Apache-2.0')
 depends=('electron')
 
-# Все файлы теперь берутся из GitHub
-source=("https://github.com/${GITHUB_REPOSITORY:-youruser/perplexity}/archive/v${pkgver}.tar.gz"
-        "https://github.com/${GITHUB_REPOSITORY:-youruser/perplexity}/raw/v${pkgver}/aur/launcher.sh"
-        "https://github.com/${GITHUB_REPOSITORY:-youruser/perplexity}/raw/v${pkgver}/aur/perplexity.desktop"
-        "https://github.com/${GITHUB_REPOSITORY:-youruser/perplexity}/raw/v${pkgver}/aur/perplexity.png")
+# Замените на ваш актуальный репозиторий
+_github_user="mazix"
+_github_repo="perplexity"
 
-# Контрольные суммы будут обновлены автоматически
-sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/${_github_user}/${_github_repo}/archive/v${pkgver}.tar.gz")
+
+# Контрольные суммы будут обновлены автоматически через updpkgsums
+sha256sums=('SKIP')
 
 prepare() {
     cd "$srcdir"
-    # GitHub archive распаковывается в папку perplexity-VERSION
-    if [ -d "perplexity-${pkgver}" ]; then
-        mv "perplexity-${pkgver}" "app-src"
+    # GitHub archive распаковывается в папку REPO-VERSION
+    if [ -d "${_github_repo}-${pkgver}" ]; then
+        mv "${_github_repo}-${pkgver}" "app-src"
+    fi
+}
+
+build() {
+    cd "$srcdir/app-src"
+    
+    # Если есть package.json, можно установить зависимости
+    if [ -f "package.json" ]; then
+        echo "Installing npm dependencies..."
+        npm install --production
     fi
 }
 
 package() {
-    # Устанавливаем приложение
-    install -d "$pkgdir/usr/lib/perplexity"
-    cp -r "$srcdir/app-src"/* "$pkgdir/usr/lib/perplexity/"
+    cd "$srcdir/app-src"
     
-    # Устанавливаем launcher
-    install -Dm755 "$srcdir/launcher.sh" "$pkgdir/usr/bin/perplexity"
+    # Устанавливаем основные файлы приложения
+    install -d "$pkgdir/usr/lib/$pkgname"
+    
+    # Копируем все файлы приложения, исключая ненужные
+    find . -type f \
+        ! -path "./aur/*" \
+        ! -path "./.git*" \
+        ! -path "./node_modules/.cache/*" \
+        ! -name "*.md" \
+        ! -name ".gitignore" \
+        -exec install -Dm644 {} "$pkgdir/usr/lib/$pkgname/{}" \;
+    
+    # Устанавливаем launcher из aur директории
+    if [ -f "aur/launcher.sh" ]; then
+        install -Dm755 "aur/launcher.sh" "$pkgdir/usr/bin/$pkgname"
+    else
+        # Создаем простой launcher, если файл отсутствует
+        install -d "$pkgdir/usr/bin"
+        cat > "$pkgdir/usr/bin/$pkgname" << 'EOF'
+#!/bin/bash
+exec electron /usr/lib/perplexity "$@"
+EOF
+        chmod 755 "$pkgdir/usr/bin/$pkgname"
+    fi
     
     # Устанавливаем desktop entry
-    install -Dm644 "$srcdir/perplexity.desktop" "$pkgdir/usr/share/applications/perplexity.desktop"
+    if [ -f "aur/perplexity.desktop" ]; then
+        install -Dm644 "aur/perplexity.desktop" "$pkgdir/usr/share/applications/$pkgname.desktop"
+    fi
     
     # Устанавливаем иконку
-    install -Dm644 "$srcdir/perplexity.png" "$pkgdir/usr/share/icons/hicolor/512x512/apps/perplexity.png"
+    if [ -f "aur/perplexity.png" ]; then
+        install -Dm644 "aur/perplexity.png" "$pkgdir/usr/share/icons/hicolor/512x512/apps/$pkgname.png"
+    fi
     
-    # Если есть лицензия в исходниках, устанавливаем её
-    if [ -f "$srcdir/app-src/LICENSE" ]; then
-        install -Dm644 "$srcdir/app-src/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    # Устанавливаем лицензию
+    if [ -f "LICENSE" ]; then
+        install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    fi
+    
+    # Устанавливаем документацию
+    if [ -f "README.md" ]; then
+        install -Dm644 "README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
     fi
 }
