@@ -78,6 +78,14 @@ jobs:
           bash -n aur/PKGBUILD
           echo "✅ PKGBUILD syntax is valid"
 
+      - name: Build binary package
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          sudo pacman -Syu --noconfirm base-devel npm git
+          cd aur
+          makepkg -fs --noconfirm
+          ls -lh *.pkg.tar.zst
+
       - name: Publish to AUR
         if: startsWith(github.ref, 'refs/tags/')
         uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
@@ -109,3 +117,9 @@ jobs:
         if: always()
         run: |
           rm -f aur/PKGBUILD.backup
+      - name: Upload binary artifact
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: perplexity-pkg
+          path: aur/*.pkg.tar.zst
