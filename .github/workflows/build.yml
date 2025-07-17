@@ -3,7 +3,10 @@ name: Build PKGBUILD
 on:
   push:
     branches:
-      - '**'
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -73,8 +76,35 @@ jobs:
             ls -lh *.pkg.tar.zst
           "
 
+      - name: Clean old artifacts
+        if: github.ref == 'refs/heads/main'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listArtifactsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+            
+            const oldArtifacts = artifacts.data.artifacts
+              .filter(artifact => artifact.name.startsWith('perplexity-pkg-'))
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+              .slice(3); // Keep only 3 most recent
+            
+            for (const artifact of oldArtifacts) {
+              console.log(`Deleting old artifact: ${artifact.name}`);
+              await github.rest.actions.deleteArtifact({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                artifact_id: artifact.id
+              });
+            }
+
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         with:
-          name: perplexity-pkg
+          name: perplexity-pkg-${{ github.sha }}
           path: aur/*.pkg.tar.zst
+          retention-days: 7
