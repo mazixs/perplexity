@@ -85,8 +85,14 @@ prepare() {
         exit 1
     fi
     
-    cd "${srcdir}/perplexity-${pkgver}"
-    npm install --production
+    # Check if package.json exists in the target directory
+    if [ -f "${srcdir}/perplexity-${pkgver}/package.json" ]; then
+        cd "${srcdir}/perplexity-${pkgver}"
+        npm install --production
+    else
+        echo "Warning: package.json not found in ${srcdir}/perplexity-${pkgver}"
+        echo "Skipping npm install step"
+    fi
 }
 
 build() {
