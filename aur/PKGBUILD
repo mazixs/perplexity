@@ -1,72 +1,54 @@
 # Maintainer: mazix <mazix@bk.ru>
-
 pkgname=perplexity
 pkgver=1.1.3
 pkgrel=1
 pkgdesc="Native Perplexity AI client for Linux (Electron wrapper)"
 arch=('x86_64')
-url="https://www.perplexity.ai/"
-license=('Apache-2.0')
+url="https://github.com/mazix/perplexity"
+license=('MIT')
 depends=('electron')
+makedepends=('npm')
 
-_github_user="mazix"
-_github_repo="perplexity"
-
+# These files are expected to be in the same directory as the PKGBUILD
 source=("launcher.sh"
         "perplexity.desktop"
         "perplexity.png"
         "default.conf")
 
-# Контрольные суммы будут обновлены автоматически через updpkgsums
-sha256sums=('ad6bc970f19f4cb943af777199ac4277d53563625962861e61ff34a1265fafd8'
+sha256sums=('e407cdc386b008805b5b458135623b4373a6e166dca02fc200514d34d28d712c'
             '61e38f97079451a9a59125232fac460ee38d9c478c893cbf7fd2d6afbd61c9fd'
             '36ee4908a30561ee36454cc2319dbb636d6b0091c8ab46bc440ba25ce47a746c'
             'd3c83b2c03ac67e3bd45601004da2a1d4020e2d5540ca6b2887835e077edfecd')
 
 prepare() {
-    # Копируем исходные файлы из локальной папки src
-    cp -r "${startdir}/../src"/* "${srcdir}/"
+    # Copy the application source code from the parent directory
+    cp -r "${startdir}/../src" "${srcdir}/src"
+    # Copy the license
+    cp "${startdir}/../LICENSE" "${srcdir}/LICENSE"
 }
 
 build() {
-    cd "$srcdir"
-    
-    # Если есть package.json, можно установить зависимости
-    if [ -f "package.json" ]; then
-        echo "Installing npm dependencies..."
-        npm install --production
-    fi
+    cd "${srcdir}/src"
+    npm install --production
 }
 
 package() {
-    cd "$srcdir"
-    
-    # Устанавливаем основные файлы приложения
-    install -d "$pkgdir/usr/lib/$pkgname"
-    
-    # Копируем все файлы приложения, исключая ненужные
-    find . -type f \
-        ! -path "./aur/*" \
-        ! -path "./.git*" \
-        ! -path "./node_modules/.cache/*" \
-        ! -name "*.md" \
-        ! -name ".gitignore" \
-        -exec install -Dm644 {} "$pkgdir/usr/lib/$pkgname/{}" \;
-    
-    # Устанавливаем launcher из локального файла
-    install -Dm755 "$srcdir/launcher.sh" "$pkgdir/usr/bin/$pkgname"
-    
-    # Устанавливаем default.conf
-    install -Dm644 "$srcdir/default.conf" "$pkgdir/usr/lib/$pkgname/default.conf"
-    
-    # Устанавливаем desktop entry из локального файла
-    install -Dm644 "$srcdir/perplexity.desktop" "$pkgdir/usr/share/applications/$pkgname.desktop"
-    
-    # Устанавливаем иконку из локального файла
-    install -Dm644 "$srcdir/perplexity.png" "$pkgdir/usr/share/icons/hicolor/512x512/apps/$pkgname.png"
-    
-    # Устанавливаем лицензию
-    if [ -f "LICENSE" ]; then
-        install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-    fi
+    # Install application files
+    install -d "${pkgdir}/usr/lib/${pkgname}"
+    cp -r "${srcdir}/src/"* "${pkgdir}/usr/lib/${pkgname}/"
+
+    # Install launcher script
+    install -Dm755 "${srcdir}/launcher.sh" "${pkgdir}/usr/bin/${pkgname}"
+
+    # Install desktop entry
+    install -Dm644 "${srcdir}/perplexity.desktop" "${pkgdir}/usr/share/applications/${pkgname}.desktop"
+
+    # Install icon
+    install -Dm644 "${srcdir}/perplexity.png" "${pkgdir}/usr/share/icons/hicolor/512x512/apps/${pkgname}.png"
+
+    # Install config file
+    install -Dm644 "${srcdir}/default.conf" "${pkgdir}/etc/${pkgname}/default.conf"
+
+    # Install license
+    install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }

@@ -8,7 +8,7 @@ CONFIG_FILE="${PERPLEXITY_CONFIG:-$CONFIG_HOME/perplexity.conf}"
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "Конфиг не найден, копирую дефолтный"
     mkdir -p "$(dirname "$CONFIG_FILE")"
-    cp /usr/lib/perplexity/default.conf "$CONFIG_FILE"
+    cp /etc/perplexity/default.conf "$CONFIG_FILE"
 fi
 
 # shellcheck source=/dev/null
