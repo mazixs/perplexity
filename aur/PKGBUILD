@@ -23,15 +23,32 @@ sha256sums=('e407cdc386b008805b5b458135623b4373a6e166dca02fc200514d34d28d712c'
 prepare() {
     # Copy source files from the repository root
     mkdir -p "${srcdir}/perplexity-${pkgver}"
-    # Copy all source files from the src directory in the repository
+    
+    # Try different possible paths to find the src directory
+    SRC_PATH=""
     if [ -d "${startdir}/../src" ]; then
-        cp -r "${startdir}/../src/"* "${srcdir}/perplexity-${pkgver}/"
+        SRC_PATH="${startdir}/../src"
     elif [ -d "${startdir}/../../src" ]; then
-        cp -r "${startdir}/../../src/"* "${srcdir}/perplexity-${pkgver}/"
+        SRC_PATH="${startdir}/../../src"
+    elif [ -d "$(dirname "${startdir}")/src" ]; then
+        SRC_PATH="$(dirname "${startdir}")/src"
+    elif [ -d "$(pwd)/../src" ]; then
+        SRC_PATH="$(pwd)/../src"
+    fi
+    
+    if [ -n "${SRC_PATH}" ] && [ -d "${SRC_PATH}" ]; then
+        echo "Found src directory at: ${SRC_PATH}"
+        cp -r "${SRC_PATH}/"* "${srcdir}/perplexity-${pkgver}/"
     else
         echo "Error: Cannot find src directory"
+        echo "Checked paths:"
+        echo "  ${startdir}/../src"
+        echo "  ${startdir}/../../src"
+        echo "  $(dirname "${startdir}")/src"
+        echo "  $(pwd)/../src"
         exit 1
     fi
+    
     cd "${srcdir}/perplexity-${pkgver}"
     npm install --production
 }
