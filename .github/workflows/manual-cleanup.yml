@@ -2,6 +2,15 @@ name: Manual Artifact Cleanup
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "yes" to confirm emergency cleanup'
+        required: true
+        default: 'no'
+
+permissions:
+  actions: write
+  contents: read
 
 jobs:
   emergency-cleanup:
