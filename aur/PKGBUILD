@@ -10,7 +10,7 @@ depends=('electron')
 makedepends=('npm')
 
 # These files are expected to be in the same directory as the PKGBUILD
-source=("https://github.com/mazix/perplexity/archive/v${pkgver}.tar.gz"
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/mazix/perplexity/archive/v${pkgver}.tar.gz"
         "launcher.sh"
         "perplexity.desktop"
         "perplexity.png"
@@ -24,21 +24,19 @@ sha256sums=('SKIP'
 
 prepare() {
     # Extract and prepare source code from downloaded archive
-    cd "${srcdir}"
-    mv "perplexity-${pkgver}/src" .
-    mv "perplexity-${pkgver}/LICENSE" .
-    rm -rf "perplexity-${pkgver}"
+    cd "${srcdir}/perplexity-${pkgver}"
+    npm install --production
 }
 
 build() {
-    cd "${srcdir}/src"
-    npm install --production
+    # No build steps needed, npm install is now in prepare()
+    :
 }
 
 package() {
     # Install application files
     install -d "${pkgdir}/usr/lib/${pkgname}"
-    cp -r "${srcdir}/src/"* "${pkgdir}/usr/lib/${pkgname}/"
+    cp -r "${srcdir}/perplexity-${pkgver}/." "${pkgdir}/usr/lib/${pkgname}/"
 
     # Install launcher script
     install -Dm755 "${srcdir}/launcher.sh" "${pkgdir}/usr/bin/${pkgname}"
@@ -53,5 +51,5 @@ package() {
     install -Dm644 "${srcdir}/default.conf" "${pkgdir}/etc/${pkgname}/default.conf"
 
     # Install license
-    install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    install -Dm644 "${srcdir}/perplexity-${pkgver}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
