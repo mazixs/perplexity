@@ -31,7 +31,7 @@ jobs:
       - name: Verify assets exist
         run: |
           echo "🔍 Checking required files..."
-          for file in aur/PKGBUILD aur/launcher.sh aur/perplexity.desktop aur/perplexity.png; do
+          for file in aur/PKGBUILD aur/launcher.sh aur/perplexity.desktop aur/perplexity.png aur/default.conf; do
             if [[ ! -f "$file" ]]; then
               echo "❌ Missing required file: $file"
               exit 1
@@ -88,6 +88,7 @@ jobs:
             aur/launcher.sh
             aur/perplexity.desktop
             aur/perplexity.png
+            aur/default.conf
           updpkgsums: true
           test: true
           test_flags: '--clean --cleanbuild --syncdeps --noconfirm'
