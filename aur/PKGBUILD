@@ -27,22 +27,32 @@ prepare() {
     # Try different possible paths to find the src directory
     SRC_PATH=""
     if [ -d "${startdir}/../src" ]; then
-        SRC_PATH="${startdir}/../src"
+        SRC_PATH="$(realpath "${startdir}/../src")"
     elif [ -d "${startdir}/../../src" ]; then
-        SRC_PATH="${startdir}/../../src"
+        SRC_PATH="$(realpath "${startdir}/../../src")"
     elif [ -d "$(dirname "${startdir}")/src" ]; then
-        SRC_PATH="$(dirname "${startdir}")/src"
+        SRC_PATH="$(realpath "$(dirname "${startdir}")/src")"
     elif [ -d "$(pwd)/../src" ]; then
-        SRC_PATH="$(pwd)/../src"
+        SRC_PATH="$(realpath "$(pwd)/../src")"
     fi
     
     if [ -n "${SRC_PATH}" ] && [ -d "${SRC_PATH}" ]; then
         echo "Found src directory at: ${SRC_PATH}"
-        # Avoid copying directory into itself by checking if target already exists
-        if [ "${SRC_PATH}" != "${srcdir}/perplexity-${pkgver}" ]; then
-            cp -r "${SRC_PATH}/"* "${srcdir}/perplexity-${pkgver}/"
+        TARGET_PATH="$(realpath "${srcdir}/perplexity-${pkgver}")"
+        echo "Target directory: ${TARGET_PATH}"
+        
+        # Avoid copying directory into itself by checking resolved paths
+        if [ "${SRC_PATH}" != "${TARGET_PATH}" ]; then
+            # Copy files one by one to avoid directory conflicts
+            for item in "${SRC_PATH}/"*; do
+                if [ -e "$item" ]; then
+                    cp -r "$item" "${TARGET_PATH}/"
+                fi
+            done
         else
             echo "Error: Source and target directories are the same"
+            echo "Source: ${SRC_PATH}"
+            echo "Target: ${TARGET_PATH}"
             exit 1
         fi
     else
