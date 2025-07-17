@@ -1,0 +1,43 @@
+name: Build PKGBUILD
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 2
+
+      - name: Verify assets exist
+        run: |
+          echo "🔍 Checking required files..."
+          for file in aur/PKGBUILD aur/launcher.sh aur/perplexity.desktop aur/perplexity.png aur/default.conf; do
+            if [[ ! -f "$file" ]]; then
+              echo "❌ Missing required file: $file"
+              exit 1
+            fi
+            echo "✅ Found: $file"
+          done
+
+      - name: Test PKGBUILD syntax
+        run: |
+          echo "🧪 Testing PKGBUILD syntax..."
+          bash -n aur/PKGBUILD
+          echo "✅ PKGBUILD syntax is valid"
+
+      - name: Build binary package (Arch container, non-root)
+        run: |
+          docker run --rm -v "$PWD/aur:/build" -w /build archlinux:base-devel bash -c "useradd builder && chown -R builder . && sudo -u builder makepkg -fs --noconfirm && ls -lh *.pkg.tar.zst"
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: perplexity-pkg
+          path: aur/*.pkg.tar.zst
