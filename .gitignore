@@ -8,7 +8,6 @@
 *.tmp
 
 # makepkg/AUR
-*.pkg.tar.*
 *.src.tar.*
 *.sig
 pkg/
