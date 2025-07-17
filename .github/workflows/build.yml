@@ -36,14 +36,14 @@ jobs:
         run: |
           docker run --rm -v "$PWD/aur:/build" -w /build archlinux:base-devel bash -c "
             pacman -Syu --noconfirm && 
-            pacman -S --noconfirm --needed git base-devel namcap
+            pacman -S --noconfirm --needed git base-devel namcap nodejs npm
           "
 
       - name: Test package build with makepkg
         run: |
           docker run --rm -v "$PWD/aur:/build" -w /build archlinux:base-devel bash -c "
             pacman -Syu --noconfirm && 
-            pacman -S --noconfirm --needed git base-devel namcap && 
+            pacman -S --noconfirm --needed git base-devel namcap nodejs npm && 
             useradd -m builder && 
             echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers && 
             chown -R builder . && 
@@ -65,7 +65,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD/aur:/build" -w /build archlinux:base-devel bash -c "
             pacman -Syu --noconfirm && 
-            pacman -S --noconfirm --needed git base-devel && 
+            pacman -S --noconfirm --needed git base-devel nodejs npm && 
             useradd -m builder && 
             echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers && 
             chown -R builder . && 
