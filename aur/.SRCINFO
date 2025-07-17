@@ -7,6 +7,7 @@ pkgbase = perplexity
 	license = Apache 2.0
 	depends = electron
 	makeDepends = npm
+	makeDepends = nodejs
 	source = launcher.sh
 	source = perplexity.desktop
 	source = perplexity.png
