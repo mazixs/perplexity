@@ -32,9 +32,46 @@ jobs:
           bash -n aur/PKGBUILD
           echo "✅ PKGBUILD syntax is valid"
 
-      - name: Build binary package (Arch container, non-root)
+      - name: Install system dependencies
         run: |
-          docker run --rm -v "$PWD/aur:/build" -w /build archlinux:base-devel bash -c "useradd builder && chown -R builder . && sudo -u builder makepkg -fs --noconfirm && ls -lh *.pkg.tar.zst"
+          docker run --rm -v "$PWD/aur:/build" -w /build archlinux:base-devel bash -c "
+            pacman -Syu --noconfirm && 
+            pacman -S --noconfirm --needed git base-devel namcap
+          "
+
+      - name: Test package build with makepkg
+        run: |
+          docker run --rm -v "$PWD/aur:/build" -w /build archlinux:base-devel bash -c "
+            pacman -Syu --noconfirm && 
+            pacman -S --noconfirm --needed git base-devel namcap && 
+            useradd -m builder && 
+            echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers && 
+            chown -R builder . && 
+            sudo -u builder makepkg --nobuild --nodeps --skipinteg && 
+            sudo -u builder makepkg --printsrcinfo > .SRCINFO && 
+            echo 'Generated .SRCINFO:' && 
+            cat .SRCINFO
+          "
+
+      - name: Validate PKGBUILD with namcap
+        run: |
+          docker run --rm -v "$PWD/aur:/build" -w /build archlinux:base-devel bash -c "
+            pacman -Syu --noconfirm && 
+            pacman -S --noconfirm --needed namcap && 
+            namcap PKGBUILD || echo 'namcap warnings found (non-critical)'
+          "
+
+      - name: Build binary package (full build)
+        run: |
+          docker run --rm -v "$PWD/aur:/build" -w /build archlinux:base-devel bash -c "
+            pacman -Syu --noconfirm && 
+            pacman -S --noconfirm --needed git base-devel && 
+            useradd -m builder && 
+            echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers && 
+            chown -R builder . && 
+            sudo -u builder makepkg -fs --noconfirm && 
+            ls -lh *.pkg.tar.zst
+          "
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4

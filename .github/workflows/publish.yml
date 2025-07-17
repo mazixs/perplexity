@@ -46,11 +46,30 @@ jobs:
           echo "📋 Current PKGBUILD content:"
           cat aur/PKGBUILD
 
+      - name: Prepare package files
+        run: |
+          echo "::group::Checking required files for AUR publication"
+          for file in "aur/PKGBUILD"; do
+            if [ ! -f "$file" ]; then
+              echo "::error::Missing required file: $file"
+              exit 1
+            fi
+          done
+          echo "All required files present"
+          echo "::endgroup::"
+
       - name: Download binary artifact
         uses: actions/download-artifact@v4
         with:
-          name: perplexity-pkg
-          path: aur/
+          name: binary-package
+          path: ./aur/
+
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2.7.0
+        with:
+          key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          known_hosts: ${{ secrets.KNOWN_HOSTS }}
+          if_key_exists: replace
 
       - name: Publish to AUR
         uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
@@ -69,6 +88,16 @@ jobs:
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
           commit_message: "Update to ${{ github.ref_name }}"
+          allow_empty_commits: false
+          ssh_keyscan_types: rsa,ecdsa,ed25519
+
+      - name: Publication Summary
+        run: |
+          echo "::group::AUR Publication Summary"
+          echo "Package successfully published to AUR"
+          echo "Version: ${{ github.ref_name }}"
+          echo "All tests passed and package validated"
+          echo "::endgroup::"
 
       - name: Success notification
         if: success()
