@@ -7,7 +7,7 @@ arch=('x86_64')
 url="https://github.com/mazix/perplexity"
 license=('Apache 2.0')
 depends=('electron')
-makedepends=('npm')
+makedepends=('npm' 'nodejs')
 
 # These files are expected to be in the same directory as the PKGBUILD
 source=("launcher.sh"
