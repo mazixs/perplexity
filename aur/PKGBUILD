@@ -76,13 +76,36 @@ prepare() {
             fi
         fi
         
-        # Copy LICENSE file from project root if it exists
-        PROJECT_ROOT="$(dirname "${SRC_PATH}")"
-        if [ -f "${PROJECT_ROOT}/LICENSE" ]; then
-            echo "Copying LICENSE file from project root"
-            cp "${PROJECT_ROOT}/LICENSE" "${TARGET_PATH}/"
-        else
-            echo "Warning: LICENSE file not found in project root"
+        # Copy LICENSE file from various possible locations
+        LICENSE_FOUND=false
+        
+        # Try multiple possible paths for LICENSE file
+        LICENSE_PATHS=(
+            "$(dirname "${SRC_PATH}")/LICENSE"
+            "${startdir}/../LICENSE"
+            "${startdir}/../../LICENSE"
+            "$(dirname "${startdir}")/LICENSE"
+            "$(pwd)/../LICENSE"
+            "$(pwd)/../../LICENSE"
+            "/build/LICENSE"
+            "/build/src/../LICENSE"
+        )
+        
+        echo "Searching for LICENSE file in multiple locations..."
+        for license_path in "${LICENSE_PATHS[@]}"; do
+            echo "Checking: ${license_path}"
+            if [ -f "${license_path}" ]; then
+                echo "Found LICENSE file at: ${license_path}"
+                cp "${license_path}" "${TARGET_PATH}/"
+                LICENSE_FOUND=true
+                break
+            fi
+        done
+        
+        if [ "${LICENSE_FOUND}" = false ]; then
+            echo "Warning: LICENSE file not found in any of the checked locations"
+            echo "Creating a placeholder LICENSE file"
+            echo "Apache License 2.0 - See project repository for full license text" > "${TARGET_PATH}/LICENSE"
         fi
     else
         echo "Error: Cannot find src directory"
