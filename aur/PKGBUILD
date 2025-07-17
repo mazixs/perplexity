@@ -5,26 +5,29 @@ pkgrel=1
 pkgdesc="Native Perplexity AI client for Linux (Electron wrapper)"
 arch=('x86_64')
 url="https://github.com/mazix/perplexity"
-license=('MIT')
+license=('Apache 2.0')
 depends=('electron')
 makedepends=('npm')
 
 # These files are expected to be in the same directory as the PKGBUILD
-source=("launcher.sh"
+source=("https://github.com/mazix/perplexity/archive/v${pkgver}.tar.gz"
+        "launcher.sh"
         "perplexity.desktop"
         "perplexity.png"
         "default.conf")
 
-sha256sums=('e407cdc386b008805b5b458135623b4373a6e166dca02fc200514d34d28d712c'
+sha256sums=('SKIP'
+            'e407cdc386b008805b5b458135623b4373a6e166dca02fc200514d34d28d712c'
             '61e38f97079451a9a59125232fac460ee38d9c478c893cbf7fd2d6afbd61c9fd'
             '36ee4908a30561ee36454cc2319dbb636d6b0091c8ab46bc440ba25ce47a746c'
             'd3c83b2c03ac67e3bd45601004da2a1d4020e2d5540ca6b2887835e077edfecd')
 
 prepare() {
-    # Copy the application source code from the parent directory
-    cp -r "${startdir}/../src" "${srcdir}/src"
-    # Copy the license
-    cp "${startdir}/../LICENSE" "${srcdir}/LICENSE"
+    # Extract and prepare source code from downloaded archive
+    cd "${srcdir}"
+    mv "perplexity-${pkgver}/src" .
+    mv "perplexity-${pkgver}/LICENSE" .
+    rm -rf "perplexity-${pkgver}"
 }
 
 build() {
