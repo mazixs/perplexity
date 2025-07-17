@@ -21,9 +21,15 @@ sha256sums=('e407cdc386b008805b5b458135623b4373a6e166dca02fc200514d34d28d712c'
             'd3c83b2c03ac67e3bd45601004da2a1d4020e2d5540ca6b2887835e077edfecd')
 
 prepare() {
-    # Copy source files from the parent directory
+    # Copy source files from the repository root
     mkdir -p "${srcdir}/perplexity-${pkgver}"
-    cp -r "${startdir}/../src/"* "${srcdir}/perplexity-${pkgver}/"
+    # Copy all source files from the src directory in the repository
+    if [ -d "${startdir}/../src" ]; then
+        cp -r "${startdir}/../src/"* "${srcdir}/perplexity-${pkgver}/"
+    else
+        # Fallback: look for src directory in current location
+        find "${startdir}/.." -name "src" -type d -exec cp -r {}/* "${srcdir}/perplexity-${pkgver}/" \;
+    fi
     cd "${srcdir}/perplexity-${pkgver}"
     npm install --production
 }
