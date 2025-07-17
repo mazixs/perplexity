@@ -18,7 +18,10 @@ source=("launcher.sh"
         "default.conf")
 
 # Контрольные суммы будут обновлены автоматически через updpkgsums
-sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+sha256sums=('ad6bc970f19f4cb943af777199ac4277d53563625962861e61ff34a1265fafd8'
+            '61e38f97079451a9a59125232fac460ee38d9c478c893cbf7fd2d6afbd61c9fd'
+            '36ee4908a30561ee36454cc2319dbb636d6b0091c8ab46bc440ba25ce47a746c'
+            'd3c83b2c03ac67e3bd45601004da2a1d4020e2d5540ca6b2887835e077edfecd')
 
 prepare() {
     # Копируем исходные файлы из локальной папки src
