@@ -44,8 +44,20 @@ prepare() {
         # Check if there's already a perplexity-${pkgver} directory in src
         if [ -d "${SRC_PATH}/perplexity-${pkgver}" ]; then
             echo "Found existing perplexity-${pkgver} directory in src, copying its contents"
-            # Copy contents of the existing perplexity directory
-            cp -r "${SRC_PATH}/perplexity-${pkgver}/"* "${TARGET_PATH}/"
+            # Check if directory has any content (including hidden files)
+            if [ "$(ls -A "${SRC_PATH}/perplexity-${pkgver}" 2>/dev/null)" ]; then
+                # Copy all contents including hidden files
+                cp -r "${SRC_PATH}/perplexity-${pkgver}/".* "${TARGET_PATH}/" 2>/dev/null || true
+                cp -r "${SRC_PATH}/perplexity-${pkgver}/"* "${TARGET_PATH}/" 2>/dev/null || true
+            else
+                echo "Warning: perplexity-${pkgver} directory is empty, copying all src contents instead"
+                # Copy files one by one to avoid directory conflicts
+                for item in "${SRC_PATH}/"*; do
+                    if [ -e "$item" ] && [ "$(basename "$item")" != "perplexity-${pkgver}" ]; then
+                        cp -r "$item" "${TARGET_PATH}/"
+                    fi
+                done
+            fi
         else
             echo "Copying all src contents to target directory"
             # Avoid copying directory into itself by checking resolved paths
