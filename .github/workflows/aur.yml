@@ -78,13 +78,12 @@ jobs:
           bash -n aur/PKGBUILD
           echo "✅ PKGBUILD syntax is valid"
 
-      - name: Build binary package
+      - name: Build binary package (Arch container)
         if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          sudo pacman -Syu --noconfirm base-devel npm git
-          cd aur
-          makepkg -fs --noconfirm
-          ls -lh *.pkg.tar.zst
+        uses: docker://archlinux:base-devel
+        with:
+          entrypoint: /bin/bash
+          args: -c "cd /github/workspace/aur && makepkg -fs --noconfirm && ls -lh *.pkg.tar.zst"
 
       - name: Publish to AUR
         if: startsWith(github.ref, 'refs/tags/')
