@@ -58,11 +58,7 @@ jobs:
           echo "All required files present"
           echo "::endgroup::"
 
-      - name: Download binary artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: binary-package
-          path: ./aur/
+      # Binary artifact download removed - using local source files
 
       - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2.7.0

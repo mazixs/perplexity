@@ -10,20 +10,20 @@ depends=('electron')
 makedepends=('npm')
 
 # These files are expected to be in the same directory as the PKGBUILD
-source=("${pkgname}-${pkgver}.tar.gz::https://github.com/mazix/perplexity/archive/v${pkgver}.tar.gz"
-        "launcher.sh"
+source=("launcher.sh"
         "perplexity.desktop"
         "perplexity.png"
         "default.conf")
 
-sha256sums=('SKIP'
-            'e407cdc386b008805b5b458135623b4373a6e166dca02fc200514d34d28d712c'
+sha256sums=('e407cdc386b008805b5b458135623b4373a6e166dca02fc200514d34d28d712c'
             '61e38f97079451a9a59125232fac460ee38d9c478c893cbf7fd2d6afbd61c9fd'
             '36ee4908a30561ee36454cc2319dbb636d6b0091c8ab46bc440ba25ce47a746c'
             'd3c83b2c03ac67e3bd45601004da2a1d4020e2d5540ca6b2887835e077edfecd')
 
 prepare() {
-    # Extract and prepare source code from downloaded archive
+    # Copy source files from the parent directory
+    mkdir -p "${srcdir}/perplexity-${pkgver}"
+    cp -r "${startdir}/../src/"* "${srcdir}/perplexity-${pkgver}/"
     cd "${srcdir}/perplexity-${pkgver}"
     npm install --production
 }
