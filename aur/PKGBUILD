@@ -75,6 +75,15 @@ prepare() {
                 exit 1
             fi
         fi
+        
+        # Copy LICENSE file from project root if it exists
+        PROJECT_ROOT="$(dirname "${SRC_PATH}")"
+        if [ -f "${PROJECT_ROOT}/LICENSE" ]; then
+            echo "Copying LICENSE file from project root"
+            cp "${PROJECT_ROOT}/LICENSE" "${TARGET_PATH}/"
+        else
+            echo "Warning: LICENSE file not found in project root"
+        fi
     else
         echo "Error: Cannot find src directory"
         echo "Checked paths:"
