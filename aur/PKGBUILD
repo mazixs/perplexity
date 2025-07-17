@@ -9,16 +9,16 @@ url="https://www.perplexity.ai/"
 license=('Apache-2.0')
 depends=('electron')
 
-# Замените на ваш актуальный репозиторий
 _github_user="mazix"
 _github_repo="perplexity"
 
 source=("launcher.sh"
         "perplexity.desktop"
-        "perplexity.png")
+        "perplexity.png"
+        "default.conf")
 
 # Контрольные суммы будут обновлены автоматически через updpkgsums
-sha256sums=('SKIP' 'SKIP' 'SKIP')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
 
 prepare() {
     # Копируем исходные файлы из локальной папки src
@@ -53,6 +53,9 @@ package() {
     # Устанавливаем launcher из локального файла
     install -Dm755 "$srcdir/launcher.sh" "$pkgdir/usr/bin/$pkgname"
     
+    # Устанавливаем default.conf
+    install -Dm644 "$srcdir/default.conf" "$pkgdir/usr/lib/$pkgname/default.conf"
+    
     # Устанавливаем desktop entry из локального файла
     install -Dm644 "$srcdir/perplexity.desktop" "$pkgdir/usr/share/applications/$pkgname.desktop"
     
@@ -62,10 +65,5 @@ package() {
     # Устанавливаем лицензию
     if [ -f "LICENSE" ]; then
         install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-    fi
-    
-    # Устанавливаем документацию
-    if [ -f "README.md" ]; then
-        install -Dm644 "README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
     fi
 }
