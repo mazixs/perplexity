@@ -38,7 +38,13 @@ prepare() {
     
     if [ -n "${SRC_PATH}" ] && [ -d "${SRC_PATH}" ]; then
         echo "Found src directory at: ${SRC_PATH}"
-        cp -r "${SRC_PATH}/"* "${srcdir}/perplexity-${pkgver}/"
+        # Avoid copying directory into itself by checking if target already exists
+        if [ "${SRC_PATH}" != "${srcdir}/perplexity-${pkgver}" ]; then
+            cp -r "${SRC_PATH}/"* "${srcdir}/perplexity-${pkgver}/"
+        else
+            echo "Error: Source and target directories are the same"
+            exit 1
+        fi
     else
         echo "Error: Cannot find src directory"
         echo "Checked paths:"
