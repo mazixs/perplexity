@@ -22,6 +22,11 @@ PerplexitySetup/
 __pycache__/
 *.pyc
 
+aur/pkg/
+aur/*.pkg.tar.zst
+aur/*.log
+aur/PKGBUILD.bin
+
 # Node/Electron
 node_modules/
 

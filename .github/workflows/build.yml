@@ -86,8 +86,13 @@ jobs:
           sudo -u nobody makepkg -fs --noconfirm
           ls -lh *.pkg.tar.zst
           # Get the exact package name
-          PKG_FILE=$(ls *.pkg.tar.zst)
+          PKG_FILE=$(ls *.pkg.tar.zst | head -n1)
+          if [[ -z "$PKG_FILE" ]]; then
+            echo "❌ No package file found"
+            exit 1
+          fi
           echo "PACKAGE_FILE=$PKG_FILE" >> $GITHUB_ENV
+          echo "📦 Package file: $PKG_FILE"
           mv "$PKG_FILE" ../
 
       - name: Build full package for manual dispatch
@@ -111,7 +116,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2.3.2
         with:
-          files: ${{ env.PACKAGE_FILE }}
+          files: "*.pkg.tar.zst"
           draft: false
           prerelease: false
         env:
