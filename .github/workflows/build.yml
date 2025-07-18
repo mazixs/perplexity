@@ -106,7 +106,7 @@ jobs:
             }
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         with:
           name: perplexity-pkg-${{ github.sha }}

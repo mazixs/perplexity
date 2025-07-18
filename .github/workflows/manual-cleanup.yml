@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Emergency artifact cleanup
-        uses: actions/github-script@v7
+        uses: actions/github-script@v7.0.1
         with:
           script: |
             console.log('🚨 Starting emergency artifact cleanup...');
