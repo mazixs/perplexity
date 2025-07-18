@@ -17,7 +17,7 @@ build/
 .cache/
 config/
 PerplexitySetup/
-
+Пример/
 # Python
 __pycache__/
 *.pyc

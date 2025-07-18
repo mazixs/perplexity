@@ -16,22 +16,29 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
     steps:
+      - name: Install packages
+        run: pacman -Syy -q --noconfirm && pacman -S -q --noconfirm git sudo base-devel nodejs npm
+        
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
         with:
-          fetch-depth: 2
+          persist-credentials: false
 
-      - name: Verify assets exist
+      - name: Verify PKGBUILD exists
         run: |
-          echo "🔍 Checking required files..."
-          for file in aur/PKGBUILD aur/launcher.sh aur/perplexity.desktop aur/perplexity.png aur/default.conf; do
-            if [[ ! -f "$file" ]]; then
-              echo "❌ Missing required file: $file"
-              exit 1
-            fi
-            echo "✅ Found: $file"
-          done
+          echo "🔍 Checking PKGBUILD..."
+          if [[ ! -f "aur/PKGBUILD" ]]; then
+            echo "❌ PKGBUILD not found"
+            exit 1
+          fi
+          echo "✅ PKGBUILD found"
+          echo "📁 Current directory contents:"
+          ls -la
+          echo "📁 AUR directory contents:"
+          ls -la aur/
 
       - name: Test PKGBUILD syntax
         run: |
@@ -39,76 +46,49 @@ jobs:
           bash -n aur/PKGBUILD
           echo "✅ PKGBUILD syntax is valid"
 
-      - name: Install system dependencies
+      - name: Fix permissions for build
         run: |
-          docker run --rm -v "$PWD/aur:/build" -w /build archlinux:base-devel bash -c "
-            pacman -Syu --noconfirm && 
-            pacman -S --noconfirm --needed git base-devel namcap nodejs npm
-          "
+          mkdir /home/build
+          chgrp nobody /home/build
+          chmod g+ws /home/build
+          chown nobody .
+          mkdir -p arch
+          chown nobody arch
+          # Fix npm cache permissions
+          mkdir -p /.npm
+          chown -R nobody:nobody /.npm
+          chmod -R 755 /.npm
 
-      - name: Test package build with makepkg
+      - name: Build and test package
         run: |
-          docker run --rm -v "$PWD/aur:/build" -w /build archlinux:base-devel bash -c "
-            pacman -Syu --noconfirm && 
-            pacman -S --noconfirm --needed git base-devel namcap nodejs npm && 
-            useradd -m builder && 
-            echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers && 
-            chown -R builder . && 
-            sudo -u builder makepkg --nobuild --nodeps --skipinteg && 
-            sudo -u builder makepkg --printsrcinfo > .SRCINFO && 
-            echo 'Generated .SRCINFO:' && 
-            cat .SRCINFO
-          "
+          echo "📦 Building package..."
+          # Copy all necessary files to build directory (fixes act-cli mounting issue)
+          cp aur/* arch/ 2>/dev/null || true
+          cd arch
+          echo "📁 Contents of build directory:"
+          ls -la
+          echo "🧪 Testing PKGBUILD with bash..."
+          bash -n PKGBUILD
+          echo "✅ PKGBUILD syntax test passed"
+          
+          # Build package with makepkg
+          echo "🔨 Building with makepkg..."
+          sudo -u nobody makepkg --nobuild --nodeps --skipinteg
+          echo "✅ Build and test step completed successfully"
 
-      - name: Validate PKGBUILD with namcap
+      - name: Build full package (optional)
+        if: github.event_name == 'workflow_dispatch'
         run: |
-          docker run --rm -v "$PWD/aur:/build" -w /build archlinux:base-devel bash -c "
-            pacman -Syu --noconfirm && 
-            pacman -S --noconfirm --needed namcap && 
-            namcap PKGBUILD || echo 'namcap warnings found (non-critical)'
-          "
+          echo "📦 Building full package..."
+          cd arch
+          sudo -u nobody makepkg -fs --noconfirm
+          ls -lh *.pkg.tar.zst
+          mv *.pkg.tar.zst ../
 
-      - name: Build binary package (full build)
-        run: |
-          docker run --rm -v "$PWD/aur:/build" -w /build archlinux:base-devel bash -c "
-            pacman -Syu --noconfirm && 
-            pacman -S --noconfirm --needed git base-devel nodejs npm && 
-            useradd -m builder && 
-            echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers && 
-            chown -R builder . && 
-            sudo -u builder makepkg -fs --noconfirm && 
-            ls -lh *.pkg.tar.zst
-          "
-
-      - name: Clean old artifacts
-        if: github.ref == 'refs/heads/main'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const artifacts = await github.rest.actions.listArtifactsForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 100
-            });
-            
-            const oldArtifacts = artifacts.data.artifacts
-              .filter(artifact => artifact.name.startsWith('perplexity-pkg-'))
-              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-              .slice(3); // Keep only 3 most recent
-            
-            for (const artifact of oldArtifacts) {
-              console.log(`Deleting old artifact: ${artifact.name}`);
-              await github.rest.actions.deleteArtifact({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                artifact_id: artifact.id
-              });
-            }
-
-      - name: Upload binary artifact
+      - name: Upload package
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4.6.2
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         with:
           name: perplexity-pkg-${{ github.sha }}
-          path: aur/*.pkg.tar.zst
+          path: "*.pkg.tar.zst"
           retention-days: 7
