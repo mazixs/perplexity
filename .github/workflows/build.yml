@@ -3,7 +3,7 @@ name: Build & Test PKGBUILD
 on:
   push:
     branches: [main]
-    tags: ['v*']          # проверяем и теги
+    tags: ['v*']          # проверяем коммиты и теги
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -14,74 +14,91 @@ permissions:
 
 jobs:
   build:
+    name: Build & Test
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
 
     steps:
-    # 1. Системные зависимости, sudo понадобится makepkg'у
-    - name: Install base system deps
-      run: |
-        pacman -Syu --noconfirm git base-devel nodejs npm sudo
+      # 1. Системные зависимости (root)
+      - name: Install base system deps
+        run: |
+          pacman -Syu --noconfirm git base-devel nodejs npm sudo
 
-    # 2. Клонируем проект
-    - uses: actions/checkout@v4
+      # 2. Клонируем репозиторий
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-    # 3. Создаём непривилегированного билд-пользователя
-    - name: Add builder user
-      run: |
-        useradd -m builder
-        echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-        chown -R builder:builder .
+      # 3. Создаём непривилегированного пользователя для makepkg
+      - name: Add builder user
+        run: |
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          chown -R builder:builder .
 
-    # 4. Быстрая проверка PKGBUILD
-    - name: Lint PKGBUILD & check .SRCINFO
-      run: |
-        [[ -f aur/PKGBUILD && -f aur/.SRCINFO ]] || { echo "PKGBUILD или .SRCINFO не найдены" ; exit 1; }
-        bash -n aur/PKGBUILD
-        echo "✅ PKGBUILD syntax OK"
+      # 4. Быстрая проверка наличия и синтаксиса PKGBUILD
+      - name: Verify PKGBUILD & .SRCINFO
+        run: |
+          for f in aur/PKGBUILD aur/.SRCINFO; do
+            [[ -f "$f" ]] || { echo "❌ Missing $f"; exit 1; }
+          done
+          bash -n aur/PKGBUILD
+          echo "✅ PKGBUILD syntax OK"
 
-    # 5. Готовим директорию build/
-    - name: Prepare build dir
-      run: |
-        rm -rf build && mkdir build
-        cp -r aur/* build/
-        chown -R builder:builder build
-        ls -1 build
+      # 5. Подготовка build/ и создание source-tarball
+      - name: Prepare build directory + source tarball
+        run: |
+          rm -rf build && mkdir build
+          cp -r aur/* build/
+          # --- создаём perplexity-<version>.tar.gz ---
+          VERSION=$(grep '^pkgver=' build/PKGBUILD | cut -d= -f2)
+          tar czf build/perplexity-${VERSION}.tar.gz \
+              --transform "s,^,perplexity-${VERSION}/," \
+              -C src .
+          # -------------------------------------------
+          chown -R builder:builder build
+          echo "📂 build/ contents:"
+          ls -1 build
 
-    # 6. Dry-run без установки зависимостей
-    - name: makepkg --nobuild (no deps)
-      run: |
-        runuser -u builder -- bash -lc "cd build && makepkg --nobuild --nodeps --skipinteg"
-        echo "✅ Все source-файлы доступны"
+      # 6. dry-run: проверяем доступность source-файлов
+      - name: makepkg --nobuild (no deps)
+        run: |
+          runuser -u builder -- bash -lc \
+            "cd build && makepkg --nobuild --nodeps --skipinteg"
+          echo "✅ Source files OK"
 
-    # 7. Полный билд (только для тега)
-    - name: Full build for tags
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        runuser -u builder -- bash -lc "cd build && makepkg -f --nodeps --skipinteg --nocheck"
-        echo "PACKAGE=$(ls build/*.pkg.tar.zst | head -n1)" >> $GITHUB_ENV
+      # 7. Полный билд для тега
+      - name: Full build for tags
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          runuser -u builder -- bash -lc \
+            "cd build && makepkg -f --nodeps --skipinteg --nocheck"
+          echo "PACKAGE_FILE=build/$(ls build/*.pkg.tar.zst | head -n1)" >> $GITHUB_ENV
 
-    # 8. Полный билд (ручной запуск)
-    - name: Full build for manual dispatch
-      if: github.event_name == 'workflow_dispatch'
-      run: |
-        runuser -u builder -- bash -lc "cd build && makepkg -f --nodeps --skipinteg --nocheck"
-        ls -lh build/*.pkg.tar.zst
+      # 8. Полный билд для ручного запуска
+      - name: Full build for manual dispatch
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          runuser -u builder -- bash -lc \
+            "cd build && makepkg -f --nodeps --skipinteg --nocheck"
+          ls -lh build/*.pkg.tar.zst
 
-    # 9. Артефакт (manual only)
-    - uses: actions/upload-artifact@v4
-      if: github.event_name == 'workflow_dispatch'
-      with:
-        name: build-pkg-${{ github.run_id }}
-        path: build/*.pkg.tar.zst
-        retention-days: 7
+      # 9. Артефакт (manual only)
+      - name: Upload build artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-pkg-${{ github.run_id }}
+          path: build/*.pkg.tar.zst
+          retention-days: 7
 
-    # 10. Release (тег)
-    - name: GitHub Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v2
-      with:
-        files: ${{ env.PACKAGE }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 10. GitHub Release (tags only)
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.PACKAGE_FILE }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
