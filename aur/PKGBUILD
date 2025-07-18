@@ -15,10 +15,10 @@ source=("launcher.sh"
         "perplexity.png"
         "default.conf")
 
-sha256sums=('e407cdc386b008805b5b458135623b4373a6e166dca02fc200514d34d28d712c'
-            '61e38f97079451a9a59125232fac460ee38d9c478c893cbf7fd2d6afbd61c9fd'
+sha256sums=('73a2a82540005d5c856efba8b01c04aff2f6a42bf890164e37da57691e662d2b'
+            'cc0ccc05588907474681a197fd658135625426b0f7de6b5006e5ce06fc0257fd'
             '36ee4908a30561ee36454cc2319dbb636d6b0091c8ab46bc440ba25ce47a746c'
-            '0a0f9aa46a36410548c1153559319f1a742217e8b9eb059d3375f84f77ad76b9')
+            '0926f58bd0adad27d8cda90feb401cf83350b6d37098d481178bb211cb34e95c')
 
 prepare() {
     # Copy source files from the repository root

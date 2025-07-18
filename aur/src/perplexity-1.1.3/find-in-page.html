@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+  <body>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+          Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        font-size: 13px;
+        padding: 0;
+        margin: 0;
+        -webkit-app-region: no-drag;
+        user-select: none;
+      }
+      ::-webkit-scrollbar {
+        display: none;
+      }
+      .container {
+        margin: 6px;
+        background: #fff;
+        box-shadow: rgba(0, 0, 0, 0.2) 0 0 6px;
+        border: 1px rgba(0, 0, 0, 0.2) solid;
+        padding: 12px;
+        border-radius: 6px;
+        display: flex;
+        justify-content: space-between;
+        vertical-align: middle;
+        transition: 125ms transform;
+      }
+
+      .container.top {
+        transform: translate(0, -60px);
+      }
+
+      .container.bottom {
+        transform: translate(0, 60px);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .container {
+          background: #1e1e1e;
+          box-shadow: rgba(0, 0, 0, 0.4) 0 0 6px;
+          border: 1px rgba(0, 0, 0, 0.4) solid;
+        }
+      }
+      .container.active {
+        transform: translate(0, 0);
+      }
+      button {
+        background-color: transparent;
+        border: 0;
+        padding: 0;
+        border-radius: 100%;
+        height: 22px;
+        width: 22px;
+        line-height: 22px;
+        text-align: center;
+      }
+      button[disabled] {
+        opacity: 0.3;
+        background-color: transparent !important;
+      }
+      button:hover {
+        background-color: rgba(0, 0, 0, 0.1);
+      }
+      button:active {
+        background-color: rgba(0, 0, 0, 0.2);
+      }
+      button:focus {
+        outline: 0;
+      }
+      button svg {
+        vertical-align: -5px;
+      }
+      button#stop svg {
+        vertical-align: -4px;
+      }
+      button svg {
+        fill: rgba(0, 0, 0, 0.7);
+      }
+      @media (prefers-color-scheme: dark) {
+        button svg {
+          fill: rgba(255, 255, 255, 0.7);
+        }
+      }
+      input[type='text'] {
+        border: 0;
+        height: 22px;
+        background-color: transparent;
+      }
+      @media (prefers-color-scheme: dark) {
+        input[type='text'] {
+          color: rgba(255, 255, 255, 0.9);
+        }
+      }
+      input[type='text']:focus {
+        outline: 0;
+      }
+      .count {
+        padding: 0 10px;
+        vertical-align: middle;
+        border-right: 1px rgba(0, 0, 0, 0.2) solid;
+        line-height: 22px;
+        color: rgba(0, 0, 0, 0.7);
+        width: 45px;
+        overflow: hidden;
+        text-align: center;
+      }
+      @media (prefers-color-scheme: dark) {
+        .count {
+          border-right: 1px rgba(255, 255, 255, 0.2) solid;
+          color: rgba(255, 255, 255, 0.7);
+        }
+      }
+      .buttons {
+        padding: 0 0 0 10px;
+      }
+    </style>
+    <div class="container">
+      <div class="input">
+        <input type="text" id="searchBox" autofocus />
+      </div>
+      <div class="count">
+        <span id="activeMatchOrdinal">0</span>/<span id="matches">0</span>
+      </div>
+      <div class="buttons">
+        <button id="prev" disabled title="Previous">
+          <svg height="18px" viewBox="0 0 24 24" width="18px">
+            <path d="M0 0h24v24H0V0z" fill="none" />
+            <path d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14l-6-6z" />
+          </svg>
+        </button>
+        <button id="next" disabled title="Next">
+          <svg height="18px" viewBox="0 0 24 24" width="18px">
+            <path d="M24 24H0V0h24v24z" fill="none" />
+            <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6-1.41-1.41z" />
+          </svg>
+        </button>
+        <button id="stop" title="Close find bar">
+          <svg height="16px" viewBox="0 0 24 24" width="16px">
+            <path d="M0 0h24v24H0V0z" fill="none" />
+            <path
+              d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+    <script>
+      const container = document.querySelector('.container');
+      const search = document.getElementById('searchBox');
+      const stopBtn = document.getElementById('stop');
+      const prevBtn = document.getElementById('prev');
+      const nextBtn = document.getElementById('next');
+
+      const placement = new URLSearchParams(location.search).get('placement');
+      if (placement) container.classList.add(placement);
+
+      let findNext = false;
+
+      function updateFindMetadata(activeMatchOrdinal, matches) {
+        document.getElementById('activeMatchOrdinal').innerText =
+          activeMatchOrdinal;
+        document.getElementById('matches').innerText = matches;
+        prevBtn.disabled = matches === 0;
+        nextBtn.disabled = matches === 0;
+        findNext = activeMatchOrdinal === 1;
+      }
+
+      function close() {
+        container.classList.remove('active');
+        window.todesktop.contents.findInPage.stop();
+        setTimeout(() => {
+          window.todesktop.views.remove();
+        }, 100);
+      }
+
+      function visibilityChange() {
+        if (document.hidden === false) {
+          container.classList.add('active');
+          search.focus();
+          search.select();
+          findNext = true;
+        }
+      }
+      visibilityChange();
+      document.addEventListener('visibilitychange', visibilityChange, false);
+
+      search.addEventListener('input', ({ target }) => {
+        const { value } = target;
+        if (value && value.length) {
+          window.todesktop.contents.findInPage.find(value, {
+            findNext: true,
+          });
+        } else {
+          window.todesktop.contents.findInPage.stop();
+          updateFindMetadata(0, 0);
+        }
+      });
+
+      search.addEventListener('keydown', (e) => {
+        const isMac = /Mac OS/.test(navigator.userAgent);
+        const modifierKey = isMac ? e.metaKey : e.ctrlKey;
+        if (e.key === 'Enter') {
+          window.todesktop.contents.findInPage.find(search.value, {
+            forward: !e.shiftKey,
+            findNext,
+          });
+        } else if (e.key.toLowerCase() === 'g' && modifierKey) {
+          window.todesktop.contents.findInPage.find(search.value, {
+            forward: !e.shiftKey,
+            findNext,
+          });
+        } else if (e.key === 'Escape') {
+          close();
+        }
+      });
+
+      search.addEventListener('blur', (e) => {
+        search.focus();
+      });
+
+      stopBtn.addEventListener('click', close);
+
+      prevBtn.addEventListener('click', () => {
+        window.todesktop.contents.findInPage.find(search.value, {
+          forward: false,
+          findNext,
+        });
+      });
+
+      nextBtn.addEventListener('click', () => {
+        window.todesktop.contents.findInPage.find(search.value, {
+          forward: true,
+          findNext,
+        });
+      });
+
+      window.todesktop.on('find-in-page-close', close);
+      window.todesktop.on(
+        'found-in-page',
+        (e, { activeMatchOrdinal, matches }) => {
+          updateFindMetadata(activeMatchOrdinal, matches);
+        }
+      );
+
+      window.addEventListener('keydown', (e) => {
+        // disable zooming
+        if (
+          (e.code == 'Minus' || e.code == 'Equal') &&
+          (e.ctrlKey || e.metaKey)
+        ) {
+          e.preventDefault();
+        }
+      });
+    </script>
+  </body>
+</html>
