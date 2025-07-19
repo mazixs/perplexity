@@ -1,0 +1,125 @@
+name: Build, Check and Publish PKGBUILD
+
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    paths:
+      - 'aur/**'
+      - '.github/workflows/aur.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 2  # Нужно для git diff
+
+      - name: Archive sources
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          git archive --format=tar.gz --output="perplexity-${TAG_VERSION}.tar.gz" "$GITHUB_REF_NAME"
+
+      - name: Release sources
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: perplexity-${{ github.ref_name }}.tar.gz
+
+      - name: Validate tag format
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid tag format. Expected: v1.2.3, got: $GITHUB_REF_NAME"
+            exit 1
+          fi
+          echo "✅ Tag format is valid: $GITHUB_REF_NAME"
+
+      - name: Verify assets exist
+        run: |
+          echo "🔍 Checking required files..."
+          for file in aur/PKGBUILD aur/launcher.sh aur/perplexity.desktop aur/perplexity.png; do
+            if [[ ! -f "$file" ]]; then
+              echo "❌ Missing required file: $file"
+              exit 1
+            fi
+            echo "✅ Found: $file"
+          done
+
+      - name: Update PKGBUILD version for tags
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          echo "🏷️ Updating to version: $TAG_VERSION"
+          
+          # Проверяем, что версия корректная
+          if [[ ! "$TAG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid version format: $TAG_VERSION"
+            exit 1
+          fi
+          
+          # Создаем backup
+          cp aur/PKGBUILD aur/PKGBUILD.backup
+          
+          # Обновляем версию
+          sed -i "s/pkgver=.*/pkgver='$TAG_VERSION'/" aur/PKGBUILD
+          sed -i "s/pkgrel=.*/pkgrel=1/" aur/PKGBUILD
+          
+          echo "✅ Updated PKGBUILD version to $TAG_VERSION"
+
+      - name: Show PKGBUILD changes
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          echo "📝 PKGBUILD changes:"
+          if [[ -f aur/PKGBUILD.backup ]]; then
+            diff -u aur/PKGBUILD.backup aur/PKGBUILD || true
+          fi
+          echo ""
+          echo "📋 Current PKGBUILD content:"
+          cat aur/PKGBUILD
+
+      - name: Test PKGBUILD syntax
+        run: |
+          echo "🧪 Testing PKGBUILD syntax..."
+          # Базовая проверка синтаксиса
+          bash -n aur/PKGBUILD
+          echo "✅ PKGBUILD syntax is valid"
+
+      - name: Publish to AUR
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+        with:
+          pkgname: perplexity
+          pkgbuild: aur/PKGBUILD
+          assets: |
+            aur/launcher.sh
+            aur/perplexity.desktop
+            aur/perplexity.png
+          updpkgsums: true
+          test: true
+          test_flags: '--clean --cleanbuild --syncdeps --noconfirm'
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update to ${{ github.ref_name }}"
+
+      - name: Success notification
+        if: success() && startsWith(github.ref, 'refs/tags/')
+        run: |
+          echo "🎉 Successfully published ${{ github.ref_name }} to AUR!"
+          echo "📦 Package: perplexity"
+          echo "🔗 AUR URL: https://aur.archlinux.org/packages/perplexity"
+          echo "⏰ Published at: $(date)"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f aur/PKGBUILD.backup 
