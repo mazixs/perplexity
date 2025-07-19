@@ -8,8 +8,8 @@
 *.tmp
 
 # makepkg/AUR
-*.pkg.tar
-*.src.tar
+*.pkg.tar.*
+*.src.tar.*
 *.sig
 pkg/
 build/
@@ -18,10 +18,15 @@ build/
 .cache/
 config/
 PerplexitySetup/
-
+Пример/
 # Python
 __pycache__/
 *.pyc
+
+aur/pkg/
+aur/*.pkg.tar.zst
+aur/*.log
+aur/PKGBUILD.bin
 
 # Node/Electron
 node_modules/
@@ -33,10 +38,9 @@ node_modules/
 # Системные файлы
 .DS_Store
 Thumbs.db
+пример.yml
 
-# Конфиги пользователя
-*.conf
-!usr/lib/perplexity/default.conf
+
 
 # Логи
 logs/

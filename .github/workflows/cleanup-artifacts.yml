@@ -1,0 +1,79 @@
+name: Cleanup Artifacts
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old artifacts
+        uses: actions/github-script@v7.0.1
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listArtifactsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+            
+            console.log(`Found ${artifacts.data.artifacts.length} total artifacts`);
+            
+            // Delete artifacts older than 7 days
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - 7);
+            
+            const oldArtifacts = artifacts.data.artifacts
+              .filter(artifact => new Date(artifact.created_at) < cutoffDate);
+            
+            console.log(`Found ${oldArtifacts.length} artifacts older than 7 days`);
+            
+            for (const artifact of oldArtifacts) {
+              console.log(`Deleting artifact: ${artifact.name} (created: ${artifact.created_at})`);
+              try {
+                await github.rest.actions.deleteArtifact({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  artifact_id: artifact.id
+                });
+                console.log(`✅ Deleted: ${artifact.name}`);
+              } catch (error) {
+                console.log(`❌ Failed to delete ${artifact.name}: ${error.message}`);
+              }
+            }
+            
+            // Also keep only the 5 most recent perplexity-pkg artifacts
+            const perplexityArtifacts = artifacts.data.artifacts
+              .filter(artifact => artifact.name.startsWith('perplexity-pkg-'))
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+              .slice(5); // Keep only 5 most recent
+            
+            console.log(`Found ${perplexityArtifacts.length} old perplexity-pkg artifacts to delete`);
+            
+            for (const artifact of perplexityArtifacts) {
+              console.log(`Deleting old perplexity artifact: ${artifact.name}`);
+              try {
+                await github.rest.actions.deleteArtifact({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  artifact_id: artifact.id
+                });
+                console.log(`✅ Deleted: ${artifact.name}`);
+              } catch (error) {
+                console.log(`❌ Failed to delete ${artifact.name}: ${error.message}`);
+              }
+            }
+
+      - name: Summary
+        run: |
+          echo "🧹 Artifact cleanup completed"
+          echo "📅 Cleanup date: $(date)"
+          echo "ℹ️  Artifacts older than 7 days have been removed"
+          echo "ℹ️  Only 5 most recent perplexity-pkg artifacts are kept"

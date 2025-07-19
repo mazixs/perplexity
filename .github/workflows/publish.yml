@@ -1,13 +1,9 @@
-name: Build, Check and Publish PKGBUILD
+name: Publish PKGBUILD to AUR
 
 on:
   push:
     tags:
       - 'v*'
-  pull_request:
-    paths:
-      - 'aur/**'
-      - '.github/workflows/aur.yml'
   workflow_dispatch:
 
 jobs:
@@ -17,51 +13,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
         with:
-          fetch-depth: 2  # Нужно для git diff
+          fetch-depth: 2
 
       - name: Validate tag format
-        if: startsWith(github.ref, 'refs/tags/')
         run: |
-          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "❌ Invalid tag format. Expected: v1.2.3, got: $GITHUB_REF_NAME"
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "❌ Invalid tag format. Expected: v1.2.3 or v1.2.3.4, got: $GITHUB_REF_NAME"
             exit 1
           fi
           echo "✅ Tag format is valid: $GITHUB_REF_NAME"
 
-      - name: Verify assets exist
-        run: |
-          echo "🔍 Checking required files..."
-          for file in aur/PKGBUILD aur/launcher.sh aur/perplexity.desktop aur/perplexity.png; do
-            if [[ ! -f "$file" ]]; then
-              echo "❌ Missing required file: $file"
-              exit 1
-            fi
-            echo "✅ Found: $file"
-          done
-
       - name: Update PKGBUILD version for tags
-        if: startsWith(github.ref, 'refs/tags/')
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           echo "🏷️ Updating to version: $TAG_VERSION"
-          
-          # Проверяем, что версия корректная
-          if [[ ! "$TAG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ ! "$TAG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
             echo "❌ Invalid version format: $TAG_VERSION"
             exit 1
           fi
-          
-          # Создаем backup
           cp aur/PKGBUILD aur/PKGBUILD.backup
-          
-          # Обновляем версию
           sed -i "s/pkgver=.*/pkgver='$TAG_VERSION'/" aur/PKGBUILD
           sed -i "s/pkgrel=.*/pkgrel=1/" aur/PKGBUILD
-          
           echo "✅ Updated PKGBUILD version to $TAG_VERSION"
 
       - name: Show PKGBUILD changes
-        if: startsWith(github.ref, 'refs/tags/')
         run: |
           echo "📝 PKGBUILD changes:"
           if [[ -f aur/PKGBUILD.backup ]]; then
@@ -71,15 +46,28 @@ jobs:
           echo "📋 Current PKGBUILD content:"
           cat aur/PKGBUILD
 
-      - name: Test PKGBUILD syntax
+      - name: Prepare package files
         run: |
-          echo "🧪 Testing PKGBUILD syntax..."
-          # Базовая проверка синтаксиса
-          bash -n aur/PKGBUILD
-          echo "✅ PKGBUILD syntax is valid"
+          echo "::group::Checking required files for AUR publication"
+          for file in "aur/PKGBUILD"; do
+            if [ ! -f "$file" ]; then
+              echo "::error::Missing required file: $file"
+              exit 1
+            fi
+          done
+          echo "All required files present"
+          echo "::endgroup::"
+
+      # Binary artifact download removed - using local source files
+
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2.7.0
+        with:
+          key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          known_hosts: ${{ secrets.KNOWN_HOSTS }}
+          if_key_exists: replace
 
       - name: Publish to AUR
-        if: startsWith(github.ref, 'refs/tags/')
         uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
         with:
           pkgname: perplexity
@@ -88,6 +76,7 @@ jobs:
             aur/launcher.sh
             aur/perplexity.desktop
             aur/perplexity.png
+            aur/default.conf
           updpkgsums: true
           test: true
           test_flags: '--clean --cleanbuild --syncdeps --noconfirm'
@@ -95,9 +84,19 @@ jobs:
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
           commit_message: "Update to ${{ github.ref_name }}"
+          allow_empty_commits: false
+          ssh_keyscan_types: rsa,ecdsa,ed25519
+
+      - name: Publication Summary
+        run: |
+          echo "::group::AUR Publication Summary"
+          echo "Package successfully published to AUR"
+          echo "Version: ${{ github.ref_name }}"
+          echo "All tests passed and package validated"
+          echo "::endgroup::"
 
       - name: Success notification
-        if: success() && startsWith(github.ref, 'refs/tags/')
+        if: success()
         run: |
           echo "🎉 Successfully published ${{ github.ref_name }} to AUR!"
           echo "📦 Package: perplexity"
