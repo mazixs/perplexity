@@ -112,11 +112,22 @@ jobs:
           path: "*.pkg.tar.zst"
           retention-days: 7
 
+      - name: Verify package file exists
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          if [ ! -f "${{ env.PACKAGE_FILE }}" ]; then
+            echo "Error: Package file ${{ env.PACKAGE_FILE }} not found!"
+            ls -la
+            exit 1
+          fi
+          echo "Package file found: ${{ env.PACKAGE_FILE }}"
+          ls -la "${{ env.PACKAGE_FILE }}"
+
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2.3.2
         with:
-          files: "*.pkg.tar.zst"
+          files: ${{ env.PACKAGE_FILE }}
           draft: false
           prerelease: false
         env:
