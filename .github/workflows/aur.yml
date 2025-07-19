@@ -22,16 +22,19 @@ jobs:
         with:
           fetch-depth: 2  # Нужно для git diff
 
+      - name: Set PKGVER
+        run: echo "PKGVER=main.${GITHUB_SHA:0:7}" >> $GITHUB_ENV
+
       - name: Archive sources
         run: |
-          git archive --format=tar.gz --output="perplexity-${GITHUB_SHA}.tar.gz" $GITHUB_SHA
+          git archive --format=tar.gz --output="perplexity-${PKGVER}.tar.gz" $GITHUB_SHA
 
       - name: Release sources
         uses: softprops/action-gh-release@v2.3.2
         with:
-          tag_name: auto-${{ github.sha }}
-          name: Auto Release ${{ github.sha }}
-          files: perplexity-${{ github.sha }}.tar.gz
+          tag_name: auto-${{ env.PKGVER }}
+          name: Auto Release ${{ env.PKGVER }}
+          files: perplexity-${{ env.PKGVER }}.tar.gz
           generate_release_notes: true
 
       - name: Validate branch
@@ -55,10 +58,9 @@ jobs:
 
       - name: Update PKGBUILD version for main
         run: |
-          COMMIT_HASH="${GITHUB_SHA:0:7}"
-          sed -i "s/pkgver=.*/pkgver=main.${COMMIT_HASH}/" aur/PKGBUILD
+          sed -i "s/pkgver=.*/pkgver=${PKGVER}/" aur/PKGBUILD
           sed -i "s/pkgrel=.*/pkgrel=1/" aur/PKGBUILD
-          echo "✅ Updated PKGBUILD version to main.${COMMIT_HASH}"
+          echo "✅ Updated PKGBUILD version to ${PKGVER}"
 
       - name: Show PKGBUILD changes
         run: |
@@ -86,12 +88,12 @@ jobs:
           commit_username: ${{ secrets.AUR_USERNAME }}
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: "Update to main-${{ github.sha }}"
+          commit_message: "Update to main-${{ env.PKGVER }}"
 
       - name: Success notification
         if: success()
         run: |
-          echo "🎉 Successfully published main-${{ github.sha }} to AUR!"
+          echo "🎉 Successfully published main-${{ env.PKGVER }} to AUR!"
           echo "📦 Package: perplexity"
           echo "🔗 AUR URL: https://aur.archlinux.org/packages/perplexity"
           echo "⏰ Published at: $(date)"
