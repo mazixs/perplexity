@@ -8,8 +8,8 @@
 *.tmp
 
 # makepkg/AUR
-*.pkg.tar.*
-*.src.tar.*
+*.pkg.tar
+*.src.tar
 *.sig
 pkg/
 build/
