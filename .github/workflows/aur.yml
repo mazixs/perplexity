@@ -56,9 +56,9 @@ jobs:
       - name: Update PKGBUILD version for main
         run: |
           COMMIT_HASH="${GITHUB_SHA:0:7}"
-          sed -i "s/pkgver=.*/pkgver='main-${COMMIT_HASH}'/" aur/PKGBUILD
+          sed -i "s/pkgver=.*/pkgver=main.${COMMIT_HASH}/" aur/PKGBUILD
           sed -i "s/pkgrel=.*/pkgrel=1/" aur/PKGBUILD
-          echo "✅ Updated PKGBUILD version to main-${COMMIT_HASH}"
+          echo "✅ Updated PKGBUILD version to main.${COMMIT_HASH}"
 
       - name: Show PKGBUILD changes
         run: |
