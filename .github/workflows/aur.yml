@@ -2,8 +2,8 @@ name: Build, Check and Publish PKGBUILD
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
   pull_request:
     paths:
       - 'aur/**'
@@ -23,25 +23,24 @@ jobs:
           fetch-depth: 2  # Нужно для git diff
 
       - name: Archive sources
-        if: startsWith(github.ref, 'refs/tags/')
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          git archive --format=tar.gz --output="perplexity-${TAG_VERSION}.tar.gz" "$GITHUB_REF_NAME"
+          git archive --format=tar.gz --output="perplexity-${GITHUB_SHA}.tar.gz" $GITHUB_SHA
 
       - name: Release sources
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.3.2
         with:
-          files: perplexity-${{ github.ref_name }}.tar.gz
+          tag_name: auto-${{ github.sha }}
+          name: Auto Release ${{ github.sha }}
+          files: perplexity-${{ github.sha }}.tar.gz
+          generate_release_notes: true
 
-      - name: Validate tag format
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Validate branch
         run: |
-          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "❌ Invalid tag format. Expected: v1.2.3, got: $GITHUB_REF_NAME"
+          if [[ "$GITHUB_REF_NAME" != "main" ]]; then
+            echo "❌ Not on main branch. Skipping publish."
             exit 1
           fi
-          echo "✅ Tag format is valid: $GITHUB_REF_NAME"
+          echo "✅ On main branch: $GITHUB_REF_NAME"
 
       - name: Verify assets exist
         run: |
@@ -54,47 +53,25 @@ jobs:
             echo "✅ Found: $file"
           done
 
-      - name: Update PKGBUILD version for tags
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Update PKGBUILD version for main
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          echo "🏷️ Updating to version: $TAG_VERSION"
-          
-          # Проверяем, что версия корректная
-          if [[ ! "$TAG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "❌ Invalid version format: $TAG_VERSION"
-            exit 1
-          fi
-          
-          # Создаем backup
-          cp aur/PKGBUILD aur/PKGBUILD.backup
-          
-          # Обновляем версию
-          sed -i "s/pkgver=.*/pkgver='$TAG_VERSION'/" aur/PKGBUILD
+          COMMIT_HASH="${GITHUB_SHA:0:7}"
+          sed -i "s/pkgver=.*/pkgver='main-${COMMIT_HASH}'/" aur/PKGBUILD
           sed -i "s/pkgrel=.*/pkgrel=1/" aur/PKGBUILD
-          
-          echo "✅ Updated PKGBUILD version to $TAG_VERSION"
+          echo "✅ Updated PKGBUILD version to main-${COMMIT_HASH}"
 
       - name: Show PKGBUILD changes
-        if: startsWith(github.ref, 'refs/tags/')
         run: |
           echo "📝 PKGBUILD changes:"
-          if [[ -f aur/PKGBUILD.backup ]]; then
-            diff -u aur/PKGBUILD.backup aur/PKGBUILD || true
-          fi
-          echo ""
-          echo "📋 Current PKGBUILD content:"
           cat aur/PKGBUILD
 
       - name: Test PKGBUILD syntax
         run: |
           echo "🧪 Testing PKGBUILD syntax..."
-          # Базовая проверка синтаксиса
           bash -n aur/PKGBUILD
           echo "✅ PKGBUILD syntax is valid"
 
       - name: Publish to AUR
-        if: startsWith(github.ref, 'refs/tags/')
         uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
         with:
           pkgname: perplexity
@@ -109,12 +86,12 @@ jobs:
           commit_username: ${{ secrets.AUR_USERNAME }}
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: "Update to ${{ github.ref_name }}"
+          commit_message: "Update to main-${{ github.sha }}"
 
       - name: Success notification
-        if: success() && startsWith(github.ref, 'refs/tags/')
+        if: success()
         run: |
-          echo "🎉 Successfully published ${{ github.ref_name }} to AUR!"
+          echo "🎉 Successfully published main-${{ github.sha }} to AUR!"
           echo "📦 Package: perplexity"
           echo "🔗 AUR URL: https://aur.archlinux.org/packages/perplexity"
           echo "⏰ Published at: $(date)"
