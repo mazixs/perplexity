@@ -1,133 +1,104 @@
-name: Build PKGBUILD
+name: Build & Test PKGBUILD
 
 on:
   push:
-    branches:
-      - main
-    tags:
-      - 'v*'
+    branches: [main]
+    tags: ['v*']          # проверяем коммиты и теги
   pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
+  contents: read
   actions: write
-  contents: write
 
 jobs:
   build:
+    name: Build & Test
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
+
     steps:
-      - name: Install packages
-        run: pacman -Syy -q --noconfirm && pacman -S -q --noconfirm git sudo base-devel nodejs npm
-        
+      # 1. Системные зависимости (root)
+      - name: Install base system deps
+        run: |
+          pacman -Syu --noconfirm git base-devel nodejs npm sudo
+
+      # 2. Клонируем репозиторий
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - name: Verify PKGBUILD exists
+      # 3. Создаём непривилегированного пользователя для makepkg
+      - name: Add builder user
         run: |
-          echo "🔍 Checking PKGBUILD..."
-          if [[ ! -f "aur/PKGBUILD" ]]; then
-            echo "❌ PKGBUILD not found"
-            exit 1
-          fi
-          echo "✅ PKGBUILD found"
-          echo "📁 Current directory contents:"
-          ls -la
-          echo "📁 AUR directory contents:"
-          ls -la aur/
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          chown -R builder:builder .
 
-      - name: Test PKGBUILD syntax
+      # 4. Быстрая проверка наличия и синтаксиса PKGBUILD
+      - name: Verify PKGBUILD & .SRCINFO
         run: |
-          echo "🧪 Testing PKGBUILD syntax..."
+          for f in aur/PKGBUILD aur/.SRCINFO; do
+            [[ -f "$f" ]] || { echo "❌ Missing $f"; exit 1; }
+          done
           bash -n aur/PKGBUILD
-          echo "✅ PKGBUILD syntax is valid"
+          echo "✅ PKGBUILD syntax OK"
 
-      - name: Fix permissions for build
+      # 5. Подготовка build/ и создание source-tarball
+      - name: Prepare build directory + source tarball
         run: |
-          mkdir /home/build
-          chgrp nobody /home/build
-          chmod g+ws /home/build
-          chown nobody .
-          mkdir -p arch
-          chown nobody arch
-          # Fix npm cache permissions
-          mkdir -p /.npm
-          chown -R nobody:nobody /.npm
-          chmod -R 755 /.npm
+          rm -rf build && mkdir build
+          cp -r aur/* build/
+          # --- создаём perplexity-<version>.tar.gz ---
+          VERSION=$(grep '^pkgver=' build/PKGBUILD | cut -d= -f2)
+          tar czf build/perplexity-${VERSION}.tar.gz \
+              --transform "s,^,perplexity-${VERSION}/," \
+              -C src .
+          # -------------------------------------------
+          chown -R builder:builder build
+          echo "📂 build/ contents:"
+          ls -1 build
 
-      - name: Build and test package
+      # 6. dry-run: проверяем доступность source-файлов
+      - name: makepkg --nobuild (no deps)
         run: |
-          echo "📦 Building package..."
-          # Copy all necessary files to build directory (fixes act-cli mounting issue)
-          cp aur/* arch/ 2>/dev/null || true
-          cd arch
-          echo "📁 Contents of build directory:"
-          ls -la
-          echo "🧪 Testing PKGBUILD with bash..."
-          bash -n PKGBUILD
-          echo "✅ PKGBUILD syntax test passed"
-          
-          # Build package with makepkg
-          echo "🔨 Building with makepkg..."
-          sudo -u nobody makepkg --nobuild --nodeps --skipinteg
-          echo "✅ Build and test step completed successfully"
+          runuser -u builder -- bash -lc \
+            "cd build && makepkg --nobuild --nodeps --skipinteg"
+          echo "✅ Source files OK"
 
-      - name: Build full package for release
+      # 7. Полный билд для тега
+      - name: Full build for tags
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          echo "📦 Building full package for release..."
-          cd arch
-          sudo -u nobody makepkg -fs --noconfirm
-          ls -lh *.pkg.tar.zst
-          # Get the exact package name
-          PKG_FILE=$(ls *.pkg.tar.zst | head -n1)
-          if [[ -z "$PKG_FILE" ]]; then
-            echo "❌ No package file found"
-            exit 1
-          fi
-          echo "PACKAGE_FILE=$PKG_FILE" >> $GITHUB_ENV
-          echo "📦 Package file: $PKG_FILE"
-          mv "$PKG_FILE" ../
+          runuser -u builder -- bash -lc \
+            "cd build && makepkg -f --nodeps --skipinteg --nocheck"
+          echo "PACKAGE_FILE=build/$(ls build/*.pkg.tar.zst | head -n1)" >> $GITHUB_ENV
 
-      - name: Build full package for manual dispatch
+      # 8. Полный билд для ручного запуска
+      - name: Full build for manual dispatch
         if: github.event_name == 'workflow_dispatch'
         run: |
-          echo "📦 Building full package for testing..."
-          cd arch
-          sudo -u nobody makepkg -fs --noconfirm
-          ls -lh *.pkg.tar.zst
-          mv *.pkg.tar.zst ../
+          runuser -u builder -- bash -lc \
+            "cd build && makepkg -f --nodeps --skipinteg --nocheck"
+          ls -lh build/*.pkg.tar.zst
 
-      - name: Upload package artifact (manual dispatch only)
+      # 9. Артефакт (manual only)
+      - name: Upload build artifact
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v4
         with:
-          name: perplexity-pkg-${{ github.sha }}
-          path: "*.pkg.tar.zst"
+          name: build-pkg-${{ github.run_id }}
+          path: build/*.pkg.tar.zst
           retention-days: 7
-
-      - name: Verify package file exists
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          if [ ! -f "${{ env.PACKAGE_FILE }}" ]; then
-            echo "Error: Package file ${{ env.PACKAGE_FILE }} not found!"
-            ls -la
-            exit 1
-          fi
-          echo "Package file found: ${{ env.PACKAGE_FILE }}"
-          ls -la "${{ env.PACKAGE_FILE }}"
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2.3.2
+        uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.PACKAGE_FILE }}
+          files: "*.pkg.tar.zst"
           draft: false
           prerelease: false
         env:
