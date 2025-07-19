@@ -3,7 +3,6 @@ name: Build & Test PKGBUILD
 on:
   push:
     branches: [main]
-    tags: ['v*']          # проверяем коммиты и теги
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -69,9 +68,9 @@ jobs:
             "cd build && makepkg --nobuild --nodeps --skipinteg"
           echo "✅ Source files OK"
 
-      # 7. Полный билд для тега
-      - name: Full build for tags
-        if: startsWith(github.ref, 'refs/tags/')
+      # 7. Полный билд для main ветки
+      - name: Full build for main branch
+        if: github.ref == 'refs/heads/main'
         run: |
           runuser -u builder -- bash -lc \
             "cd build && makepkg -f --nodeps --skipinteg --nocheck"
@@ -95,11 +94,13 @@ jobs:
           retention-days: 7
 
       - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           files: "*.pkg.tar.zst"
           draft: false
           prerelease: false
+          tag_name: "auto-${{ github.run_number }}"
+          name: "Auto Release ${{ github.run_number }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
