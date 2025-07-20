@@ -43,6 +43,12 @@ jobs:
           cd ${{ env.BIN_DIR }}
           sudo -u builder makepkg --syncdeps --clean --cleanbuild --noconfirm
 
+      - name: Patch PKGBUILD with current sha
+        run: |
+          cd ${{ env.BIN_DIR }}
+          sed -i "s|<COMMIT>|${GITHUB_SHA}|g" PKGBUILD
+          makepkg --printsrcinfo > .SRCINFO
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -85,16 +91,5 @@ jobs:
       - name: Patch PKGBUILD with fresh binary tag
         run: |
           cd ${{ env.AUR_DIR }}
-          sed -E -i "s|binary-[0-9a-f]{7,40}|binary-${{ needs.build-bin.outputs.sha }}|g" PKGBUILD
           sed -i "s|<COMMIT>|${{ needs.build-bin.outputs.sha }}|g" PKGBUILD
           makepkg --printsrcinfo > .SRCINFO
-
-      - name: Publish to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
-        with:
-          pkgname:          perplexity
-          pkgbuild:         ${{ env.AUR_DIR }}/PKGBUILD
-          commit_username:  ${{ secrets.AUR_USERNAME }}
-          commit_email:     ${{ secrets.AUR_EMAIL }}
-          ssh_private_key:  ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message:   Update to binary-${{ needs.build-bin.outputs.sha }}
