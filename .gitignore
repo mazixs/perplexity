@@ -1,6 +1,6 @@
 # Артефакты сборки и временные файлы
-*.tar.gz
-*.tar.xz
+#*.tar.gz
+#*.tar.xz
 *.zip
 *.log
 *.bak
@@ -8,10 +8,10 @@
 *.tmp
 
 # makepkg/AUR
-*.pkg.tar.*
-*.src.tar.*
-*.sig
-pkg/
+
+#*.src.tar.*
+#*.sig
+#pkg/
 build/
 
 # Кэш и пользовательские данные
@@ -24,7 +24,7 @@ __pycache__/
 *.pyc
 
 aur/pkg/
-aur/*.pkg.tar.zst
+#aur/*.pkg.tar.zst
 aur/*.log
 aur/PKGBUILD.bin
 
