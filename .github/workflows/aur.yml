@@ -22,20 +22,12 @@ jobs:
         with:
           fetch-depth: 2  # Нужно для git diff
 
-      - name: Set PKGVER
-        run: echo "PKGVER=main.${GITHUB_SHA:0:7}" >> $GITHUB_ENV
-
-      - name: Archive sources
+      - name: Set PKGVER from latest tag
+        id: get_tag
         run: |
-          git archive --format=tar.gz --output="perplexity-${PKGVER}.tar.gz" $GITHUB_SHA
-
-      - name: Release sources
-        uses: softprops/action-gh-release@v2.3.2
-        with:
-          tag_name: auto-${{ env.PKGVER }}
-          name: Auto Release ${{ env.PKGVER }}
-          files: perplexity-${{ env.PKGVER }}.tar.gz
-          generate_release_notes: true
+          TAG=$(git describe --tags --abbrev=0)
+          echo "PKGVER=${TAG#v}" >> $GITHUB_ENV
+          echo "Using tag: $TAG"
 
       - name: Validate branch
         run: |
@@ -48,7 +40,7 @@ jobs:
       - name: Verify assets exist
         run: |
           echo "🔍 Checking required files..."
-          for file in aur/PKGBUILD aur/launcher.sh aur/perplexity.desktop aur/perplexity.png; do
+          for file in aur/PKGBUILD aur/launcher.sh aur/perplexity.desktop aur/perplexity.png aur/default.conf; do
             if [[ ! -f "$file" ]]; then
               echo "❌ Missing required file: $file"
               exit 1
@@ -56,7 +48,7 @@ jobs:
             echo "✅ Found: $file"
           done
 
-      - name: Update PKGBUILD version for main
+      - name: Update PKGBUILD version for tag
         run: |
           sed -i "s/pkgver=.*/pkgver=${PKGVER}/" aur/PKGBUILD
           sed -i "s/pkgrel=.*/pkgrel=1/" aur/PKGBUILD
@@ -82,18 +74,19 @@ jobs:
             aur/launcher.sh
             aur/perplexity.desktop
             aur/perplexity.png
+            aur/default.conf
           updpkgsums: true
           test: true
           test_flags: '--clean --cleanbuild --syncdeps --noconfirm'
           commit_username: ${{ secrets.AUR_USERNAME }}
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: "Update to main-${{ env.PKGVER }}"
+          commit_message: "Update to tag ${{ env.PKGVER }}"
 
       - name: Success notification
         if: success()
         run: |
-          echo "🎉 Successfully published main-${{ env.PKGVER }} to AUR!"
+          echo "🎉 Successfully published ${{ env.PKGVER }} to AUR!"
           echo "📦 Package: perplexity"
           echo "🔗 AUR URL: https://aur.archlinux.org/packages/perplexity"
           echo "⏰ Published at: $(date)"

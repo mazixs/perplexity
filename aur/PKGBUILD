@@ -14,6 +14,7 @@ source=(
   "launcher.sh"
   "perplexity.desktop"
   "perplexity.png"
+  "perplexity-${pkgver}.tar.gz::https://github.com/mazixs/perplexity/archive/refs/tags/v${pkgver}.tar.gz"
 )
 
 # sha256sums for meta files (must match the order in source)
@@ -22,24 +23,13 @@ sha256sums=(
   '147da994cc8af1f0557da848155d71774ceb5b09e6ef74dfdbc8695af2147bb3'  # launcher.sh
   'cc0ccc05588907474681a197fd658135625426b0f7de6b5006e5ce06fc0257fd'  # perplexity.desktop
   '36ee4908a30561ee36454cc2319dbb636d6b0091c8ab46bc440ba25ce47a746c'  # perplexity.png
+  'SKIP' # GitHub релизный архив, хеш обновлять вручную при необходимости
 )
 
 prepare() {
   cd "$srcdir"
-  
-  # Check for archive (CI/CD) or use local files
-  if [[ -f "perplexity-${pkgver}.tar.gz" ]]; then
-    # CI/CD: extract archive
-    tar xzf "perplexity-${pkgver}.tar.gz"
-  else
-    # Local build: copy files from ../../src/
-    mkdir -p "perplexity-${pkgver}"
-    cp -r "../../src/"* "perplexity-${pkgver}/"
-  fi
-  
+  tar xzf "perplexity-${pkgver}.tar.gz"
   cd "perplexity-${pkgver}"
-
-  # Install only runtime dependencies
   npm install --production --no-optional
 }
 
