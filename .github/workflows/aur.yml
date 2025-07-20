@@ -71,7 +71,7 @@ jobs:
             fi
             sed -i "s/pkgver=.*/pkgver=${PKGVER}/" PKGBUILD
             sed -i "s/pkgrel=.*/pkgrel=${PKGREL}/" PKGBUILD
-            sed -i "|source=.*|source=(\"${PKGNAME}::https://github.com/mazixs/perplexity/releases/download/binary-${{ github.sha }}/${PKGNAME}\")|" PKGBUILD
+            sed -i "s|^source=.*|source=(\"${PKGNAME}::https://github.com/mazixs/perplexity/releases/download/binary-${{ github.sha }}/${PKGNAME}\")|" PKGBUILD
             echo "sha256sums=(\'SKIP\')" > tmp_sha && awk "/^sha256sums=/{flag=1;next}/^$/{flag=0} !flag{print}" PKGBUILD > tmp && cat tmp_sha tmp > PKGBUILD && rm tmp_sha tmp
             makepkg --printsrcinfo > .SRCINFO
           '
