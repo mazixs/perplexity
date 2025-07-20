@@ -6,99 +6,102 @@ on:
   workflow_dispatch:
 
 env:
-  PKG_DIR: aur          # где лежат PKGBUILD для AUR
+  BIN_DIR: pkgbin   # PKGBUILD, собирающий бинарный .pkg.tar.zst
+  AUR_DIR: aur      # PKGBUILD, публикуемый в AUR
 
+#############################################################################
+# 1. build-bin — собираем .pkg.tar.zst и публикуем релиз `binary-<sha>`     #
+#############################################################################
 jobs:
-# ────────────────────────────── 1. собираем бинарник ───────────────────────────
   build-bin:
     runs-on: ubuntu-latest
-    container: archlinux:base          # чистая Arch-среда
+    container: archlinux:base
+
     outputs:
-      sha:  ${{ steps.vars.outputs.sha }}
-      ver:  ${{ steps.getver.outputs.ver }}
-      rel:  ${{ steps.getver.outputs.rel }}
+      sha: ${{ steps.vars.outputs.sha }}
+      ver: ${{ steps.vars.outputs.ver }}
+      rel: ${{ steps.vars.outputs.rel }}
 
     steps:
-    - uses: actions/checkout@v4
+      - name: Prepare pacman keyring
+        run: |
+          pacman -Sy --noconfirm archlinux-keyring gnupg
+          pacman-key --init
+          pacman-key --populate archlinux
 
-    - name: install toolchain
-      run: pacman -Syu --noconfirm base-devel git nodejs npm sudo
+      - uses: actions/checkout@v4
 
-    - name: non-root builder
-      run: |
-        useradd -m builder
-        echo 'builder ALL=(ALL) NOPASSWD: ALL' >>/etc/sudoers
-        chown -R builder:builder .
+      - name: Install build deps
+        run: pacman -Syu --noconfirm base-devel git sudo
 
-    # ── собственно сборка (npm / electron-builder и т. д.) ──
-    - name: build electron app
-      run: |
-        sudo -u builder bash -c '
-          npm ci
-          npm run make -- --dir=out/linux
-        '
-    # предполагаем, что итоговый pkg лежит как ./out/perplexity-*.pkg.tar.zst
-    - name: pack .pkg.tar.zst
-      run: |
-        sudo -u builder bash -c '
-          cd "$PKG_DIR"
-          makepkg --force --syncdeps --clean --cleanbuild --pkg --noconfirm
-        '
+      - name: Create unprivileged builder
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+          chown -R builder:builder .
 
-    - name: save artefact
-      uses: actions/upload-artifact@v4
-      with:
-        name: arch-bin
-        path: ${{ env.PKG_DIR }}/*.pkg.tar.zst
+      - name: Build package (.pkg.tar.zst)
+        run: |
+          sudo -u builder bash -c "
+            cd '${BIN_DIR}'
+            makepkg --syncdeps --clean --cleanbuild --noconfirm
+          "
 
-    # ── релиз на GitHub ─────────────
-    - name: create release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: binary-${{ github.sha }}
-        files: ${{ env.PKG_DIR }}/*.pkg.tar.zst
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: arch-bin
+          path: "${{ env.BIN_DIR }}/*.pkg.tar.zst"
 
-    # ── отдать данные во второй job ──
-    - name: export sha / pkgver / pkgrel
-      id: vars
-      run: echo "sha=${GITHUB_SHA}" >>"$GITHUB_OUTPUT"
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: binary-${{ github.sha }}
+          files:  "${{ env.BIN_DIR }}/*.pkg.tar.zst"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: read version from PKGBUILD
-      id: getver
-      run: |
-        PKGVER=$(grep '^pkgver=' $PKG_DIR/PKGBUILD | cut -d= -f2)
-        PKGREL=$(grep '^pkgrel=' $PKG_DIR/PKGBUILD | cut -d= -f2)
-        echo "ver=$PKGVER" >>"$GITHUB_OUTPUT"
-        echo "rel=$PKGREL" >>"$GITHUB_OUTPUT"
+      - name: Export vars for downstream job
+        id: vars
+        run: |
+          echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "ver=$(grep '^pkgver=' ${BIN_DIR}/PKGBUILD | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+          echo "rel=$(grep '^pkgrel=' ${BIN_DIR}/PKGBUILD | cut -d= -f2)" >> "$GITHUB_OUTPUT"
 
-# ────────────────────────────── 2. обновляем AUR ───────────────────────────────
+########################################################
+# 2. deploy-aur — патчим URL и выкладываем пакет в AUR #
+########################################################
   deploy-aur:
     needs: build-bin
     runs-on: ubuntu-latest
     container: archlinux:base
-    env:
-      COMMIT_SHA: ${{ needs.build-bin.outputs.sha }}
 
     steps:
-    - uses: actions/checkout@v4
+      - name: Prepare pacman keyring
+        run: |
+          pacman -Sy --noconfirm archlinux-keyring gnupg
+          pacman-key --init
+          pacman-key --populate archlinux
 
-    - name: install tooling
-      run: pacman -Syu --noconfirm git base-devel libarchive
+      - uses: actions/checkout@v4
 
-    - name: patch PKGBUILD with fresh binary tag
-      run: |
-        cd "$PKG_DIR"
-        sed -Ei "s|binary-[0-9a-f]{7,40}|binary-${COMMIT_SHA}|g" PKGBUILD
-        makepkg --printsrcinfo > .SRCINFO
+      - name: Install aux tools
+        run: pacman -Syu --noconfirm git base-devel libarchive
 
-    - name: publish to AUR
-      uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
-      with:
-        pkgname: perplexity
-        pkgbuild: ${{ env.PKG_DIR }}/PKGBUILD
-        commit_username: ${{ secrets.AUR_USERNAME }}
-        commit_email:    ${{ secrets.AUR_EMAIL }}
-        ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-        commit_message:  "Update to binary-${{ env.COMMIT_SHA }}"
+      - name: Patch PKGBUILD with fresh binary tag
+        run: |
+          cd "${AUR_DIR}"
+          sed -E -i "s|binary-[0-9a-f]{7,40}|binary-${{ needs.build-bin.outputs.sha }}|g" PKGBUILD
+          makepkg --printsrcinfo > .SRCINFO
+
+      - name: Publish to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+        with:
+          pkgname: perplexity
+          pkgbuild: "${{ env.AUR_DIR }}/PKGBUILD"
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email:    ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message:  "Update to binary-${{ needs.build-bin.outputs.sha }}"
+          # необязательный параметр; можно опустить — action сам добавит все ключи
+          ssh_keyscan_types: rsa,ecdsa,ed25519
