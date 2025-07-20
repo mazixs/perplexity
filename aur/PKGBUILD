@@ -1,13 +1,37 @@
 # Maintainer: mazix <mazix@bk.ru>
+
 pkgname=perplexity
 pkgver=1.1.3
-pkgrel=2
+pkgrel=1
+pkgdesc='Native Perplexity AI client for Linux (Electron wrapper, binary package)'
 arch=('x86_64')
-pkgdesc="Native Perplexity AI client for Linux (Electron wrapper, binary package)"
-url="https://github.com/mazixs/perplexity"
+url='https://github.com/mazixs/perplexity'
 license=('Apache')
 depends=('electron')
-source=("perplexity-${pkgver}-${pkgrel}-x86_64.pkg.tar.zst::https://github.com/mazixs/perplexity/releases/download/binary-229384bc927442439f25e176bc51a70d66a7b37c/perplexity-${pkgver}-${pkgrel}-x86_64.pkg.tar.zst")
-sha256sums=('SKIP')
+provides=('perplexity')
+conflicts=('perplexity-git')
 
-# package() отсутствует!
+# ↓ URL-адрес меняется вашим CI-скриптом (tag binary-<commit>)
+source=(
+  "perplexity-${pkgver}-${pkgrel}-x86_64.pkg.tar.zst::https://github.com/mazixs/perplexity/releases/download/binary-<COMMIT>/${pkgname}-${pkgver}-${pkgrel}-x86_64.pkg.tar.zst"
+  'perplexity.desktop'
+  'perplexity.png'
+)
+# чтобы makepkg не пытался сам распаковать архив
+noextract=("perplexity-${pkgver}-${pkgrel}-x86_64.pkg.tar.zst")
+sha256sums=('SKIP' 'SKIP' 'SKIP')
+
+package() {
+  # 1. распаковываем готовый бинарный пакет
+  bsdtar -xf "${srcdir}/${pkgname}-${pkgver}-${pkgrel}-x86_64.pkg.tar.zst" \
+         -C  "${pkgdir}"
+
+  # 2. убираем лишние метаданные, которые попали из архива
+  rm -f "${pkgdir}"/.{PKGINFO,BUILDINFO,MTREE}
+
+  # 3. ярлык и иконка (если нужны)
+  install -Dm644 "${srcdir}/perplexity.desktop" \
+                 "${pkgdir}/usr/share/applications/perplexity.desktop"
+  install -Dm644 "${srcdir}/perplexity.png" \
+                 "${pkgdir}/usr/share/pixmaps/perplexity.png"
+}
