@@ -28,8 +28,10 @@ jobs:
           pacman -S --noconfirm base-devel git libarchive
           useradd -m builder
           echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-          chown -R builder:builder /__w
-          chown -R builder:builder aur
+          chown -R builder:builder aur || true
+          chown -R builder:builder src || true
+          chown -R builder:builder docs || true
+          chown -R builder:builder test-build || true
 
       - name: Build binary package
         run: |
