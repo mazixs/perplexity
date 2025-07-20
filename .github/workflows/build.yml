@@ -8,8 +8,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  actions: write
+  contents: write
+# Если потребуется PAT (например, для приватного репозитория или организации),
+# добавьте секрет GH_PAT с правами repo и используйте его ниже вместо GITHUB_TOKEN.
 
 jobs:
   build:
@@ -90,6 +91,9 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2.3.2
         env:
+          # Для публичных репозиториев достаточно GITHUB_TOKEN,
+          # для приватных используйте GH_PAT:
+          # GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: build/*.pkg.tar.zst
