@@ -57,7 +57,7 @@ jobs:
       - name: Build package (.pkg.tar.zst)
         run: |
           cd ${{ env.BIN_DIR }}
-          sudo -u builder makepkg --syncdeps --clean --cleanbuild --noconfirm
+          sudo -u builder makepkg --syncdeps --clean --cleanbuild --noconfirm --force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
