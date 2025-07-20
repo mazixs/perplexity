@@ -1,9 +1,9 @@
 # Perplexity Native (Electron)  
 
 ![Build](https://img.shields.io/badge/build-passing-brightgreen?style=flat-square)
-![License](https://img.shields.io/github/license/mazix/perplexity?style=flat-square)
+![License](https://img.shields.io/github/license/mazixs/perplexity?style=flat-square)
 ![AUR](https://img.shields.io/aur/version/perplexity?color=1793d1&label=AUR&style=flat-square)
-![Downloads](https://img.shields.io/github/downloads/mazix/perplexity/total?style=flat-square)
+![Downloads](https://img.shields.io/github/downloads/mazixs/perplexity/total?style=flat-square)
 
 _Native Perplexity AI desktop client for Linux, powered by Electron._
 
