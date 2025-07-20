@@ -8,7 +8,7 @@ license=('Apache 2.0')
 depends=('electron')
 makedepends=('nodejs' 'npm')
 
-# Источники: мета-файлы (архив создается в CI/CD или копируется локально)
+# Sources: meta files (archive is created in CI/CD or copied locally)
 source=(
   "default.conf"
   "launcher.sh"
@@ -16,10 +16,10 @@ source=(
   "perplexity.png"
 )
 
-# sha256sum'ы для мета-файлов (в том же порядке что и source)
+# sha256sums for meta files (must match the order in source)
 sha256sums=(
-  '0926f58bd0adad27d8cda90feb401cf83350b6d37098d481178bb211cb34e95c'  # default.conf
-  '73a2a82540005d5c856efba8b01c04aff2f6a42bf890164e37da57691e662d2b'  # launcher.sh
+  '60d97b5180af59d239b4adcf20847138686f2a79467cac956c4247d754897760'  # default.conf
+  '147da994cc8af1f0557da848155d71774ceb5b09e6ef74dfdbc8695af2147bb3'  # launcher.sh
   'cc0ccc05588907474681a197fd658135625426b0f7de6b5006e5ce06fc0257fd'  # perplexity.desktop
   '36ee4908a30561ee36454cc2319dbb636d6b0091c8ab46bc440ba25ce47a746c'  # perplexity.png
 )
@@ -27,49 +27,49 @@ sha256sums=(
 prepare() {
   cd "$srcdir"
   
-  # Проверяем наличие архива (CI/CD) или используем локальные файлы
+  # Check for archive (CI/CD) or use local files
   if [[ -f "perplexity-${pkgver}.tar.gz" ]]; then
-    # CI/CD: распаковываем архив
+    # CI/CD: extract archive
     tar xzf "perplexity-${pkgver}.tar.gz"
   else
-    # Локальная сборка: копируем файлы из ../../src/
+    # Local build: copy files from ../../src/
     mkdir -p "perplexity-${pkgver}"
     cp -r "../../src/"* "perplexity-${pkgver}/"
   fi
   
   cd "perplexity-${pkgver}"
 
-  # Устанавливаем только runtime-зависимости
+  # Install only runtime dependencies
   npm install --production --no-optional
 }
 
 build() {
-  # Нет дополнительных build-шагов
+  # No additional build steps
   :
 }
 
 package() {
-  # Копируем весь исходный код и node_modules
+  # Copy all source code and node_modules
   install -d "${pkgdir}/usr/lib/${pkgname}"
   cp -r "${srcdir}/perplexity-${pkgver}/." "${pkgdir}/usr/lib/${pkgname}/"
 
-  # Скрипт запуска
+  # Launcher script
   install -Dm755 "${srcdir}/launcher.sh" \
     "${pkgdir}/usr/bin/${pkgname}"
 
-  # .desktop
+  # .desktop file
   install -Dm644 "${srcdir}/perplexity.desktop" \
     "${pkgdir}/usr/share/applications/${pkgname}.desktop"
 
-  # Иконка
+  # Icon
   install -Dm644 "${srcdir}/perplexity.png" \
     "${pkgdir}/usr/share/icons/hicolor/512x512/apps/${pkgname}.png"
 
-  # Конфиг
+  # Config
   install -Dm644 "${srcdir}/default.conf" \
     "${pkgdir}/etc/${pkgname}/default.conf"
 
-  # Лицензия
+  # License
   install -Dm644 "${srcdir}/perplexity-${pkgver}/LICENSE" \
     "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
