@@ -86,6 +86,7 @@ jobs:
         run: |
           cd ${{ env.AUR_DIR }}
           sed -E -i "s|binary-[0-9a-f]{7,40}|binary-${{ needs.build-bin.outputs.sha }}|g" PKGBUILD
+          sed -i "s|<COMMIT>|${{ needs.build-bin.outputs.sha }}|g" PKGBUILD
           makepkg --printsrcinfo > .SRCINFO
 
       - name: Publish to AUR
