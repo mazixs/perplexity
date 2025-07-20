@@ -22,8 +22,10 @@ jobs:
 
       - name: Set up environment
         run: |
+          pacman-key --init
+          pacman-key --populate archlinux
           pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git bsdtar
+          pacman -S --noconfirm base-devel git libarchive
 
       - name: Build binary package
         run: |
