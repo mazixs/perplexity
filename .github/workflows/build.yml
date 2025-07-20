@@ -80,11 +80,11 @@ jobs:
       # 8. Артефакт (manual only)
       - name: Upload build artifact
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: build-pkg-${{ github.run_id }}
           path: build/*.pkg.tar.zst
-          retention-days: 7
+          retention-days: 1
 
       # 9. Загрузка бинарного пакета в релиз GitHub (только для main)
       - name: Upload binary package to release

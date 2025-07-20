@@ -1,97 +1,86 @@
-name: Build, Check and Publish PKGBUILD
+name: Build, Publish Binary, and Update AUR
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    paths:
-      - 'aur/**'
-      - '.github/workflows/aur.yml'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  publish:
+  build-and-publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
         with:
-          fetch-depth: 2  # Нужно для git diff
+          fetch-depth: 0
 
-      - name: Set PKGVER from latest tag
-        id: get_tag
+      - name: Set up environment
         run: |
-          TAG=$(git describe --tags --abbrev=0)
-          echo "PKGVER=${TAG#v}" >> $GITHUB_ENV
-          echo "Using tag: $TAG"
+          sudo pacman -Syu --noconfirm
+          sudo pacman -S --noconfirm base-devel git bsdtar
 
-      - name: Validate branch
+      - name: Build binary package
         run: |
-          if [[ "$GITHUB_REF_NAME" != "main" ]]; then
-            echo "❌ Not on main branch. Skipping publish."
+          cd aur
+          makepkg --clean --syncdeps --noconfirm
+
+      - name: Get built package name
+        id: pkgfile
+        run: |
+          cd aur
+          PKGFILE=$(ls *.pkg.tar.zst | head -n1)
+          echo "PKGFILE=$PKGFILE" >> $GITHUB_ENV
+
+      - name: Upload binary to GitHub Release
+        uses: softprops/action-gh-release@v2.3.2
+        with:
+          tag_name: binary-${{ github.sha }}
+          name: Binary Release ${{ github.sha }}
+          files: aur/${{ env.PKGFILE }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update PKGBUILD and .SRCINFO for AUR
+        run: |
+          cd aur
+          # Извлекаем версию и релиз из имени файла
+          PKGNAME=$(basename ${{ env.PKGFILE }})
+          REGEX='perplexity-([0-9.]+)-([0-9]+)-x86_64.pkg.tar.zst'
+          if [[ $PKGNAME =~ $REGEX ]]; then
+            PKGVER="${BASH_REMATCH[1]}"
+            PKGREL="${BASH_REMATCH[2]}"
+          else
+            echo "Не удалось извлечь версию из имени файла: $PKGNAME"
             exit 1
           fi
-          echo "✅ On main branch: $GITHUB_REF_NAME"
+          # Обновляем PKGBUILD
+          sed -i "s/pkgver=.*/pkgver=${PKGVER}/" PKGBUILD
+          sed -i "s/pkgrel=.*/pkgrel=${PKGREL}/" PKGBUILD
+          sed -i "|source=.*|source=(\"${PKGNAME}::https://github.com/mazixs/perplexity/releases/download/binary-${{ github.sha }}/${PKGNAME}\")|" PKGBUILD
+          echo "sha256sums=('SKIP')" > tmp_sha && awk '/^sha256sums=/{flag=1;next}/^$/{flag=0} !flag{print}' PKGBUILD > tmp && cat tmp_sha tmp > PKGBUILD && rm tmp_sha tmp
+          makepkg --printsrcinfo > .SRCINFO
 
-      - name: Verify assets exist
-        run: |
-          echo "🔍 Checking required files..."
-          for file in aur/PKGBUILD aur/launcher.sh aur/perplexity.desktop aur/perplexity.png aur/default.conf; do
-            if [[ ! -f "$file" ]]; then
-              echo "❌ Missing required file: $file"
-              exit 1
-            fi
-            echo "✅ Found: $file"
-          done
-
-      - name: Update PKGBUILD version for tag
-        run: |
-          sed -i "s/pkgver=.*/pkgver=${PKGVER}/" aur/PKGBUILD
-          sed -i "s/pkgrel=.*/pkgrel=1/" aur/PKGBUILD
-          echo "✅ Updated PKGBUILD version to ${PKGVER}"
-
-      - name: Show PKGBUILD changes
-        run: |
-          echo "📝 PKGBUILD changes:"
-          cat aur/PKGBUILD
-
-      - name: Test PKGBUILD syntax
-        run: |
-          echo "🧪 Testing PKGBUILD syntax..."
-          bash -n aur/PKGBUILD
-          echo "✅ PKGBUILD syntax is valid"
-
-      - name: Publish to AUR
+      - name: Push to AUR
         uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
         with:
           pkgname: perplexity
           pkgbuild: aur/PKGBUILD
           assets: |
-            aur/launcher.sh
-            aur/perplexity.desktop
-            aur/perplexity.png
-            aur/default.conf
-          updpkgsums: true
-          test: true
-          test_flags: '--clean --cleanbuild --syncdeps --noconfirm'
+            aur/.SRCINFO
           commit_username: ${{ secrets.AUR_USERNAME }}
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: "Update to tag ${{ env.PKGVER }}"
+          commit_message: "Update to binary ${{ env.PKGFILE }}"
 
       - name: Success notification
         if: success()
         run: |
-          echo "🎉 Successfully published ${{ env.PKGVER }} to AUR!"
+          echo "🎉 Successfully published ${{ env.PKGFILE }} to GitHub Releases and updated AUR!"
           echo "📦 Package: perplexity"
           echo "🔗 AUR URL: https://aur.archlinux.org/packages/perplexity"
-          echo "⏰ Published at: $(date)"
-
-      - name: Cleanup
-        if: always()
-        run: |
-          rm -f aur/PKGBUILD.backup 
+          echo "⏰ Published at: $(date)" 
