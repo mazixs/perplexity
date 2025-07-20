@@ -38,6 +38,16 @@ jobs:
           echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
           chown -R builder:builder .
 
+      - name: Create GitHub release first
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: binary-${{ github.sha }}
+          name: Binary Release ${{ github.sha }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Patch PKGBUILD with current sha
         run: |
           cd ${{ env.BIN_DIR }}
@@ -55,7 +65,7 @@ jobs:
           name: arch-bin
           path: ${{ env.BIN_DIR }}/*.pkg.tar.zst
 
-      - name: Create GitHub release
+      - name: Upload package to release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: binary-${{ github.sha }}
