@@ -26,18 +26,19 @@ jobs:
           pacman-key --populate archlinux
           pacman -Syu --noconfirm
           pacman -S --noconfirm base-devel git libarchive
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          chown -R builder:builder /__w
+          chown -R builder:builder aur
 
       - name: Build binary package
         run: |
-          cd aur
-          makepkg --clean --syncdeps --noconfirm
+          sudo -u builder bash -c "cd aur && makepkg --clean --syncdeps --noconfirm"
 
       - name: Get built package name
         id: pkgfile
         run: |
-          cd aur
-          PKGFILE=$(ls *.pkg.tar.zst | head -n1)
-          echo "PKGFILE=$PKGFILE" >> $GITHUB_ENV
+          sudo -u builder bash -c "cd aur && PKGFILE=\$(ls *.pkg.tar.zst | head -n1); echo PKGFILE=\$PKGFILE >> $GITHUB_ENV"
 
       - name: Upload binary to GitHub Release
         uses: softprops/action-gh-release@v2.3.2
@@ -51,23 +52,23 @@ jobs:
 
       - name: Update PKGBUILD and .SRCINFO for AUR
         run: |
-          cd aur
-          # Извлекаем версию и релиз из имени файла
-          PKGNAME=$(basename ${{ env.PKGFILE }})
-          REGEX='perplexity-([0-9.]+)-([0-9]+)-x86_64.pkg.tar.zst'
-          if [[ $PKGNAME =~ $REGEX ]]; then
-            PKGVER="${BASH_REMATCH[1]}"
-            PKGREL="${BASH_REMATCH[2]}"
-          else
-            echo "Не удалось извлечь версию из имени файла: $PKGNAME"
-            exit 1
-          fi
-          # Обновляем PKGBUILD
-          sed -i "s/pkgver=.*/pkgver=${PKGVER}/" PKGBUILD
-          sed -i "s/pkgrel=.*/pkgrel=${PKGREL}/" PKGBUILD
-          sed -i "|source=.*|source=(\"${PKGNAME}::https://github.com/mazixs/perplexity/releases/download/binary-${{ github.sha }}/${PKGNAME}\")|" PKGBUILD
-          echo "sha256sums=('SKIP')" > tmp_sha && awk '/^sha256sums=/{flag=1;next}/^$/{flag=0} !flag{print}' PKGBUILD > tmp && cat tmp_sha tmp > PKGBUILD && rm tmp_sha tmp
-          makepkg --printsrcinfo > .SRCINFO
+          sudo -u builder bash -c '
+            cd aur
+            PKGNAME=$(basename ${{ env.PKGFILE }})
+            REGEX="perplexity-([0-9.]+)-([0-9]+)-x86_64.pkg.tar.zst"
+            if [[ $PKGNAME =~ $REGEX ]]; then
+              PKGVER="${BASH_REMATCH[1]}"
+              PKGREL="${BASH_REMATCH[2]}"
+            else
+              echo "Не удалось извлечь версию из имени файла: $PKGNAME"
+              exit 1
+            fi
+            sed -i "s/pkgver=.*/pkgver=${PKGVER}/" PKGBUILD
+            sed -i "s/pkgrel=.*/pkgrel=${PKGREL}/" PKGBUILD
+            sed -i "|source=.*|source=(\"${PKGNAME}::https://github.com/mazixs/perplexity/releases/download/binary-${{ github.sha }}/${PKGNAME}\")|" PKGBUILD
+            echo "sha256sums=(\'SKIP\')" > tmp_sha && awk "/^sha256sums=/{flag=1;next}/^$/{flag=0} !flag{print}" PKGBUILD > tmp && cat tmp_sha tmp > PKGBUILD && rm tmp_sha tmp
+            makepkg --printsrcinfo > .SRCINFO
+          '
 
       - name: Push to AUR
         uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
