@@ -11,9 +11,9 @@ depends=('electron')
 provides=('perplexity')
 conflicts=('perplexity-git')
 
-# ↓ URL-адрес меняется вашим CI-скриптом (tag binary-<commit>)
+# ↓ URL-адрес меняется вашим CI-скриптом (tag binary-<commit>)
 source=(
-  "perplexity-${pkgver}-${pkgrel}-x86_64.pkg.tar.zst::https://github.com/mazixs/perplexity/releases/download/binary-<COMMIT>/${pkgname}-${pkgver}-${pkgrel}-x86_64.pkg.tar.zst"
+  "perplexity-${pkgver}-${pkgrel}-x86_64.pkg.tar.zst::https://github.com/mazixs/perplexity/releases/download/binary-423e5cdb2119ff4d5acee6874ab8b1606e592ef7/${pkgname}-${pkgver}-${pkgrel}-x86_64.pkg.tar.zst"
   'perplexity.desktop'
   'perplexity.png'
 )
