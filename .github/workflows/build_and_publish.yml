@@ -38,20 +38,20 @@ jobs:
           echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
           chown -R builder:builder .
 
-      - name: Create GitHub release first
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: binary-${{ github.sha }}
-          name: Binary Release ${{ github.sha }}
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Create GitHub release first
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     tag_name: binary-${{ github.sha }}
+      #     name: Binary Release ${{ github.sha }}
+      #     draft: false
+      #     prerelease: false
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Patch PKGBUILD with current sha
+      - name: Patch PKGBUILD with existing release sha
         run: |
           cd ${{ env.BIN_DIR }}
-          sed -i "s|<COMMIT>|${GITHUB_SHA}|g" PKGBUILD
+          sed -i "s|<COMMIT>|423e5cdb2119ff4d5acee6874ab8b1606e592ef7|g" PKGBUILD
           sudo -u builder makepkg --printsrcinfo > .SRCINFO
 
       - name: Build package (.pkg.tar.zst)
@@ -65,13 +65,13 @@ jobs:
           name: arch-bin
           path: ${{ env.BIN_DIR }}/*.pkg.tar.zst
 
-      - name: Upload package to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: binary-${{ github.sha }}
-          files: ${{ env.BIN_DIR }}/*.pkg.tar.zst
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Upload package to release
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     tag_name: binary-${{ github.sha }}
+      #     files: ${{ env.BIN_DIR }}/*.pkg.tar.zst
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Export vars for downstream job
         id: vars
@@ -104,8 +104,8 @@ jobs:
           echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
           chown -R builder:builder .
 
-      - name: Patch PKGBUILD with fresh binary tag
+      - name: Patch PKGBUILD with existing release sha
         run: |
           cd ${{ env.AUR_DIR }}
-          sed -i "s|<COMMIT>|${{ needs.build-bin.outputs.sha }}|g" PKGBUILD
+          sed -i "s|<COMMIT>|423e5cdb2119ff4d5acee6874ab8b1606e592ef7|g" PKGBUILD
           sudo -u builder makepkg --printsrcinfo > .SRCINFO
