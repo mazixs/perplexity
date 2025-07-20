@@ -35,7 +35,7 @@ jobs:
 
       - name: Build binary package
         run: |
-          sudo -u builder bash -c "cd aur && makepkg --clean --syncdeps --noconfirm"
+          sudo -u builder bash -c "cd aur && rm -f *.pkg.tar.zst && makepkg --clean --syncdeps --noconfirm"
 
       - name: Get built package name
         id: pkgfile
