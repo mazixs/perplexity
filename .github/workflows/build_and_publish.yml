@@ -1,126 +1,104 @@
-name: Build binary & AUR wrapper
+name: build-and-publish
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
 
-permissions:
-  contents: write      # для релиза
-  id-token: write      # (нужен KSXGitHub-action)
+env:
+  PKG_DIR: aur          # где лежат PKGBUILD для AUR
 
-defaults:
-  run:
-    shell: bash
-
-###############################################################################
 jobs:
-###############################################################################
-  # ────────────────────────────────────────────────────────────────────────────
-  # 1 ▸ Binary package  ➜  GitHub Release  ➜  artifact + outputs
-  # ────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────── 1. собираем бинарник ───────────────────────────
   build-bin:
     runs-on: ubuntu-latest
-    container: archlinux:base
-    outputs:                      # ← передаём во 2-й job
-      pkgfile:   ${{ steps.meta.outputs.pkgfile }}
-      tag_name:  ${{ steps.meta.outputs.tag }}
+    container: archlinux:base          # чистая Arch-среда
+    outputs:
+      sha:  ${{ steps.vars.outputs.sha }}
+      ver:  ${{ steps.getver.outputs.ver }}
+      rel:  ${{ steps.getver.outputs.rel }}
+
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: System deps
-        run: pacman -Syu --noconfirm base-devel git libarchive sudo
+    - name: install toolchain
+      run: pacman -Syu --noconfirm base-devel git nodejs npm sudo
 
-      - name: Add builder
-        run: |
-          useradd -m builder
-          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-          chown -R builder:builder .
+    - name: non-root builder
+      run: |
+        useradd -m builder
+        echo 'builder ALL=(ALL) NOPASSWD: ALL' >>/etc/sudoers
+        chown -R builder:builder .
 
-      #─────────────────────────────────────────────────────────────────────────
-      #  собственно сборка
-      - name: Build binary pkg
-        run: |
-          sudo -u builder bash -c "cd aur && \
-            find . -name '*.pkg.tar.zst' -delete && \
-            makepkg --clean --syncdeps --noconfirm -f"
-      #─────────────────────────────────────────────────────────────────────────
-      - name: Detect resulting file + export outputs
-        id: meta
-        run: |
-          PKGFILE=$(ls aur/*.pkg.tar.zst | head -n1)
-          TAG="binary-${GITHUB_SHA}"
-          echo "pkgfile=${PKGFILE##*/}"   >> "$GITHUB_OUTPUT"
-          echo "tag=${TAG}"               >> "$GITHUB_OUTPUT"
-      #─────────────────────────────────────────────────────────────────────────
-      - name: Upload package artifact (for next job)
-        uses: actions/upload-artifact@v4
-        with:
-          name: binary-pkg
-          path: aur/${{ steps.meta.outputs.pkgfile }}
-          retention-days: 1
-      #─────────────────────────────────────────────────────────────────────────
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name:   ${{ steps.meta.outputs.tag }}
-          name:       Binary ${{ github.sha }}
-          files:      aur/${{ steps.meta.outputs.pkgfile }}
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # ── собственно сборка (npm / electron-builder и т. д.) ──
+    - name: build electron app
+      run: |
+        sudo -u builder bash -c '
+          npm ci
+          npm run make -- --dir=out/linux
+        '
+    # предполагаем, что итоговый pkg лежит как ./out/perplexity-*.pkg.tar.zst
+    - name: pack .pkg.tar.zst
+      run: |
+        sudo -u builder bash -c '
+          cd "$PKG_DIR"
+          makepkg --force --syncdeps --clean --cleanbuild --pkg --noconfirm
+        '
 
-  # ────────────────────────────────────────────────────────────────────────────
-  # 2 ▸ AUR wrapper (needs binary)  ➜  push to AUR
-  # ────────────────────────────────────────────────────────────────────────────
-  build-aur:
+    - name: save artefact
+      uses: actions/upload-artifact@v4
+      with:
+        name: arch-bin
+        path: ${{ env.PKG_DIR }}/*.pkg.tar.zst
+
+    # ── релиз на GitHub ─────────────
+    - name: create release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: binary-${{ github.sha }}
+        files: ${{ env.PKG_DIR }}/*.pkg.tar.zst
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # ── отдать данные во второй job ──
+    - name: export sha / pkgver / pkgrel
+      id: vars
+      run: echo "sha=${GITHUB_SHA}" >>"$GITHUB_OUTPUT"
+
+    - name: read version from PKGBUILD
+      id: getver
+      run: |
+        PKGVER=$(grep '^pkgver=' $PKG_DIR/PKGBUILD | cut -d= -f2)
+        PKGREL=$(grep '^pkgrel=' $PKG_DIR/PKGBUILD | cut -d= -f2)
+        echo "ver=$PKGVER" >>"$GITHUB_OUTPUT"
+        echo "rel=$PKGREL" >>"$GITHUB_OUTPUT"
+
+# ────────────────────────────── 2. обновляем AUR ───────────────────────────────
+  deploy-aur:
     needs: build-bin
     runs-on: ubuntu-latest
     container: archlinux:base
+    env:
+      COMMIT_SHA: ${{ needs.build-bin.outputs.sha }}
+
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: System deps
-        run: pacman -Syu --noconfirm base-devel git sudo
+    - name: install tooling
+      run: pacman -Syu --noconfirm git base-devel libarchive
 
-      - name: Add builder
-        run: |
-          useradd -m builder
-          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-          chown -R builder:builder .
+    - name: patch PKGBUILD with fresh binary tag
+      run: |
+        cd "$PKG_DIR"
+        sed -Ei "s|binary-[0-9a-f]{7,40}|binary-${COMMIT_SHA}|g" PKGBUILD
+        makepkg --printsrcinfo > .SRCINFO
 
-      #─────────────────────────────────────────────────────────────────────────
-      - name: Download binary artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: binary-pkg
-          path: binary/
-
-      - name: Prepare PKGBUILD with fresh tag
-        run: |
-          PKG=${{ needs.build-bin.outputs.pkgfile }}
-          TAG=${{ needs.build-bin.outputs.tag_name }}
-          # кладём пакет туда, где makepkg будет его искать
-          mkdir -p build && cp binary/$PKG build/
-          # правим source=() на new tag
-          sed -Ei "s#binary-[0-9a-f]{40}#${TAG}#g" aur/PKGBUILD
-          # показываем diff
-          echo "::group::PKGBUILD diff"; git --no-pager diff -U0 aur/PKGBUILD || true; echo "::endgroup::"
-
-      - name: Build wrapper (no download, файл локально)
-        run: |
-          sudo -u builder bash -c "cd aur && \
-            SRCDEST=$PWD/../build makepkg --clean --syncdeps --noconfirm -f --skipinteg --nocheck"
-
-      #─────────────────────────────────────────────────────────────────────────
-      - name: Push to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
-        with:
-          pkgname: perplexity
-          pkgbuild: aur/PKGBUILD
-          assets: |
-            aur/.SRCINFO
-          commit_username: ${{ secrets.AUR_USERNAME }}
-          commit_email:    ${{ secrets.AUR_EMAIL }}
-          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message:  "Update to ${{ needs.build-bin.outputs.pkgfile }}"
+    - name: publish to AUR
+      uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+      with:
+        pkgname: perplexity
+        pkgbuild: ${{ env.PKG_DIR }}/PKGBUILD
+        commit_username: ${{ secrets.AUR_USERNAME }}
+        commit_email:    ${{ secrets.AUR_EMAIL }}
+        ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        commit_message:  "Update to binary-${{ env.COMMIT_SHA }}"
