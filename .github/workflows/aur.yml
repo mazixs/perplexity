@@ -12,6 +12,8 @@ permissions:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    container:
+      image: archlinux:base
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
@@ -20,8 +22,8 @@ jobs:
 
       - name: Set up environment
         run: |
-          sudo pacman -Syu --noconfirm
-          sudo pacman -S --noconfirm base-devel git bsdtar
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel git bsdtar
 
       - name: Build binary package
         run: |
