@@ -60,6 +60,7 @@
 - **Desktop Entry**: Стандартный `.desktop` файл
 - **Иконки**: Интеграция в `hicolor` тему
 - **Пути**: Соответствие FHS (Filesystem Hierarchy Standard)
+- **Отключение автообновлений**: В файле `src/todesktop.json` для Perplexity полностью отключены автообновления (`autoUpdater: false`, `autoUpdates: все параметры false`). Пункт 'Check for updates' полностью удалён из всех меню трея (rightClick.menu и leftClick.menu). Трей и остальные пункты меню (Open, Launch at startup, Quit) сохранены. Это соответствует best practice для Electron/ToDesktop: обновления не проверяются, пользователь не видит пункт проверки в трее, но трей работает.
 
 ---
 
