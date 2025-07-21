@@ -7,7 +7,8 @@ pkgdesc='Native Perplexity AI client for Linux (Electron wrapper)'
 arch=('x86_64')
 url='https://github.com/mazixs/perplexity'
 license=('Apache')
-depends=('electron')
+depends=('electron' 'nodejs' 'npm')
+makedepends=('npm')
 provides=('perplexity')
 conflicts=('perplexity-git')
 
@@ -19,12 +20,24 @@ source=(
 )
 sha256sums=('SKIP' 'SKIP' 'SKIP')
 
+build() {
+  cd "${srcdir}/${pkgname}-<COMMIT>/src"
+  
+  # Устанавливаем npm зависимости
+  npm install --production
+}
+
 package() {
   cd "${srcdir}/${pkgname}-<COMMIT>"
 
   # Устанавливаем исходные файлы приложения
   install -dm755 "${pkgdir}/usr/lib/${pkgname}"
   cp -r src/* "${pkgdir}/usr/lib/${pkgname}/"
+  
+  # Копируем установленные node_modules
+  if [ -d "src/node_modules" ]; then
+    cp -r src/node_modules "${pkgdir}/usr/lib/${pkgname}/"
+  fi
 
   # Устанавливаем исполняемый файл
   install -Dm755 usr/bin/perplexity "${pkgdir}/usr/bin/perplexity"
