@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+  packages: write
+
 env:
   BIN_DIR: aur        # Поменяйте на вашу папку с PKGBUILD для бинаря, если не в корне
   AUR_DIR: aur
