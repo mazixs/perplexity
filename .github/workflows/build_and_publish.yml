@@ -48,6 +48,81 @@ jobs:
           sed -i "s|<COMMIT>|${{ github.sha }}|g" PKGBUILD
           sudo -u builder makepkg --printsrcinfo > .SRCINFO
 
+  deploy-aur-package:
+    needs: build-bin
+    runs-on: ubuntu-latest
+    container: archlinux:base
+
+    steps:
+      - name: Prepare pacman keyring
+        run: |
+          pacman -Sy --noconfirm archlinux-keyring gnupg
+          pacman-key --init
+          pacman-key --populate archlinux
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install auxiliary tools
+        run: pacman -Syu --noconfirm git base-devel openssh sudo
+
+      - name: Create unprivileged builder
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+          chown -R builder:builder .
+
+      - name: Setup SSH for AUR
+        run: |
+          mkdir -p /home/builder/.ssh
+          echo "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > /home/builder/.ssh/id_rsa
+          chmod 600 /home/builder/.ssh/id_rsa
+          echo "Host aur.archlinux.org" >> /home/builder/.ssh/config
+          echo "  HostName aur.archlinux.org" >> /home/builder/.ssh/config
+          echo "  User aur" >> /home/builder/.ssh/config
+          echo "  IdentityFile ~/.ssh/id_rsa" >> /home/builder/.ssh/config
+          echo "  StrictHostKeyChecking no" >> /home/builder/.ssh/config
+          chown -R builder:builder /home/builder/.ssh
+
+      - name: Update PKGBUILD version
+        run: |
+          cd deploy_aur
+          # Get latest release tag
+          LATEST_TAG=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -z "$LATEST_TAG" ]; then
+            LATEST_TAG="v1.0.0"
+          fi
+          VERSION=${LATEST_TAG#v}
+          
+          # Update PKGBUILD
+          sed -i "s/pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+          
+          # Generate .SRCINFO
+          sudo -u builder makepkg --printsrcinfo > .SRCINFO
+
+      - name: Clone AUR repository
+        run: |
+          sudo -u builder git clone ssh://aur@aur.archlinux.org/perplexity.git aur_repo || true
+          if [ ! -d "aur_repo" ]; then
+            sudo -u builder mkdir aur_repo
+            cd aur_repo
+            sudo -u builder git init
+            sudo -u builder git remote add origin ssh://aur@aur.archlinux.org/perplexity.git
+          fi
+
+      - name: Update AUR package
+        run: |
+          cd aur_repo
+          cp ../deploy_aur/PKGBUILD .
+          cp ../deploy_aur/.SRCINFO .
+          
+          sudo -u builder git config user.name "GitHub Actions"
+          sudo -u builder git config user.email "actions@github.com"
+          
+          sudo -u builder git add PKGBUILD .SRCINFO
+          sudo -u builder git commit -m "Update to version from release ${{ needs.build-bin.outputs.sha }}" || true
+          sudo -u builder git push origin master || sudo -u builder git push origin main
+
       - name: Build package (.pkg.tar.zst)
         run: |
           cd ${{ env.BIN_DIR }}
