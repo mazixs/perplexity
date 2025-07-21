@@ -10,7 +10,7 @@ license=('Apache')
 depends=('electron' 'nodejs' 'npm')
 makedepends=('npm')
 provides=('perplexity')
-conflicts=('')
+#conflicts=('')
 
 # Используем исходники из GitHub
 source=(
