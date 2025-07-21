@@ -11,17 +11,13 @@ permissions:
   packages: write
 
 env:
-  BIN_DIR: aur        # Поменяйте на вашу папку с PKGBUILD для бинаря, если не в корне
-  AUR_DIR: aur
+  BIN_DIR: aur        # Исходная сборка из source
+  DEPLOY_DIR: deploy_aur  # Бинарная сборка для AUR
 
 jobs:
   build-bin:
     runs-on: ubuntu-latest
     container: archlinux:base
-    outputs:
-      sha: ${{ steps.vars.outputs.sha }}
-      ver: ${{ steps.vars.outputs.ver }}
-      rel: ${{ steps.vars.outputs.rel }}
 
     steps:
       - name: Prepare pacman keyring
@@ -48,10 +44,14 @@ jobs:
           sed -i "s|<COMMIT>|${{ github.sha }}|g" PKGBUILD
           sudo -u builder makepkg --printsrcinfo > .SRCINFO
 
-  deploy-aur-package:
+  create-binary-release:
     needs: build-bin
     runs-on: ubuntu-latest
     container: archlinux:base
+    outputs:
+      sha: ${{ steps.vars.outputs.sha }}
+      ver: ${{ steps.vars.outputs.ver }}
+      rel: ${{ steps.vars.outputs.rel }}
 
     steps:
       - name: Prepare pacman keyring
@@ -87,15 +87,13 @@ jobs:
       - name: Update PKGBUILD version
         run: |
           cd deploy_aur
-          # Get latest release tag
-          LATEST_TAG=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-          if [ -z "$LATEST_TAG" ]; then
-            LATEST_TAG="v1.0.0"
-          fi
-          VERSION=${LATEST_TAG#v}
+          # Get current version from PKGBUILD and increment pkgrel
+          CURRENT_VER=$(grep '^pkgver=' PKGBUILD | cut -d= -f2)
+          CURRENT_REL=$(grep '^pkgrel=' PKGBUILD | cut -d= -f2)
+          NEW_REL=$((CURRENT_REL + 1))
           
-          # Update PKGBUILD
-          sed -i "s/pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+          # Update PKGBUILD with incremented pkgrel
+          sed -i "s/pkgrel=.*/pkgrel=${NEW_REL}/" PKGBUILD
           
           # Generate .SRCINFO
           sudo -u builder makepkg --printsrcinfo > .SRCINFO
@@ -120,19 +118,19 @@ jobs:
           sudo -u builder git config user.email "actions@github.com"
           
           sudo -u builder git add PKGBUILD .SRCINFO
-          sudo -u builder git commit -m "Update to version from release ${{ needs.build-bin.outputs.sha }}" || true
+          sudo -u builder git commit -m "Update to version from release ${{ github.sha }}" || true
           sudo -u builder git push origin master || sudo -u builder git push origin main
 
       - name: Build package (.pkg.tar.zst)
         run: |
-          cd ${{ env.BIN_DIR }}
+          cd ${{ env.DEPLOY_DIR }}
           sudo -u builder makepkg --syncdeps --clean --cleanbuild --noconfirm --force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: arch-bin
-          path: ${{ env.BIN_DIR }}/*.pkg.tar.zst
+          path: ${{ env.DEPLOY_DIR }}/*.pkg.tar.zst
 
       - name: Create GitHub release with package
         uses: softprops/action-gh-release@v2
@@ -141,7 +139,7 @@ jobs:
           name: Binary Release ${{ github.sha }}
           draft: false
           prerelease: false
-          files: ${{ env.BIN_DIR }}/*.pkg.tar.zst
+          files: ${{ env.DEPLOY_DIR }}/*.pkg.tar.zst
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -149,11 +147,11 @@ jobs:
         id: vars
         run: |
           echo "sha=${GITHUB_SHA}"                               >> $GITHUB_OUTPUT
-          echo "ver=$(grep '^pkgver=' ${{ env.BIN_DIR }}/PKGBUILD | cut -d= -f2)" >> $GITHUB_OUTPUT
-          echo "rel=$(grep '^pkgrel=' ${{ env.BIN_DIR }}/PKGBUILD | cut -d= -f2)" >> $GITHUB_OUTPUT
+          echo "ver=$(grep '^pkgver=' ${{ env.DEPLOY_DIR }}/PKGBUILD | cut -d= -f2)" >> $GITHUB_OUTPUT
+          echo "rel=$(grep '^pkgrel=' ${{ env.DEPLOY_DIR }}/PKGBUILD | cut -d= -f2)" >> $GITHUB_OUTPUT
 
-  deploy-aur:
-    needs: build-bin
+  deploy-to-aur:
+    needs: create-binary-release
     runs-on: ubuntu-latest
     container: archlinux:base
 
@@ -178,6 +176,6 @@ jobs:
 
       - name: Patch PKGBUILD with current commit sha
         run: |
-          cd ${{ env.AUR_DIR }}
+          cd ${{ env.BIN_DIR }}
           sed -i "s|<COMMIT>|${{ github.sha }}|g" PKGBUILD
           sudo -u builder makepkg --printsrcinfo > .SRCINFO
