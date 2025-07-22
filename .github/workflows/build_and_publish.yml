@@ -27,7 +27,7 @@ jobs:
           pacman-key --populate archlinux
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Install build dependencies
         run: pacman -Syu --noconfirm base-devel git sudo
@@ -61,7 +61,7 @@ jobs:
           pacman-key --populate archlinux
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Install auxiliary tools
         run: pacman -Syu --noconfirm git base-devel openssh sudo
@@ -127,13 +127,13 @@ jobs:
           sudo -u builder makepkg --syncdeps --clean --cleanbuild --noconfirm --force
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: arch-bin
           path: ${{ env.DEPLOY_DIR }}/*.pkg.tar.zst
 
       - name: Create GitHub release with package
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.3.2
         with:
           tag_name: binary-${{ github.sha }}
           name: Binary Release ${{ github.sha }}
@@ -163,7 +163,7 @@ jobs:
           pacman-key --populate archlinux
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Install auxiliary tools
         run: pacman -Syu --noconfirm git base-devel libarchive sudo
