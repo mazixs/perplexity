@@ -25,7 +25,7 @@
 
 ### 🚀 **Performance**
 - ⚡ **Native operation** — no Wine or emulation
-- 🔧 **Electron 33.3.2** — latest stable version
+- 🔧 **Electron** — latest stable version
 - 💾 **Lightweight** — minimal resource consumption
 - 🎯 **Optimization** — tuned configuration for Linux
 
