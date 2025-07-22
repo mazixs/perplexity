@@ -10,8 +10,8 @@
 **Native desktop client for Perplexity on Linux**  
 *Powered by Electron • Secure • Private*
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/mazixs/perplexity/build_and_publish.yml?style=for-the-badge&logo=github&logoColor=white)](https://github.com/mazixs/perplexity/actions)[![AUR Version](https://img.shields.io/aur/version/perplexity?style=for-the-badge&logo=archlinux&logoColor=white&color=1793d1)](https://aur.archlinux.org/packages/perplexity)
-[![License](https://img.shields.io/github/license/mazixs/perplexity?style=for-the-badge&color=green)](LICENSE)[![Downloads](https://img.shields.io/github/downloads/mazixs/perplexity/total?style=for-the-badge&logo=github&logoColor=white&color=blue)](https://github.com/mazixs/perplexity/releases)[![Electron](https://img.shields.io/badge/Electron-33.3.2-47848f?style=for-the-badge&logo=electron&logoColor=white)](https://electronjs.org/)
+[![AUR Version](https://img.shields.io/aur/version/perplexity?style=for-the-badge&logo=archlinux&logoColor=white&color=1793d1)](https://aur.archlinux.org/packages/perplexity) [![Downloads](https://img.shields.io/github/downloads/mazixs/perplexity/total?style=for-the-badge&logo=github&logoColor=white&color=blue)](https://github.com/mazixs/perplexity/releases)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/mazixs/perplexity/build_and_publish.yml?style=for-the-badge&logo=github&logoColor=white)](https://github.com/mazixs/perplexity/actions) [![License](https://img.shields.io/github/license/mazixs/perplexity?style=for-the-badge&color=green)](LICENSE) [![Electron](https://img.shields.io/badge/Electron-33.3.2-47848f?style=for-the-badge&logo=electron&logoColor=white)](https://electronjs.org/)
 
 </div>
 
@@ -299,7 +299,7 @@ Details in the [LICENSE](LICENSE) file.
 
 <p align="center">
   <strong>Made with ❤️ for the Linux community</strong><br>
-  <em>Perplexity Native • 2024</em>
+  <em>Perplexity Native • 2025</em>
 </p>
 
 </div>
