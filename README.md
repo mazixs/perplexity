@@ -11,7 +11,7 @@ _Native Perplexity AI desktop client for Linux, powered by Electron._
 
 ## Overview
 
-This project provides a **safe**, **native** Linux desktop wrapper for Perplexity AI, with full system integration, AUR support, and flexible configuration.
+This project provides a **safe**, **native** Linux desktop app for Perplexity AI, with full system integration, AUR support, and flexible configuration.
 
 - ⚡ **No Wine required**: runs natively on Electron
 - 🖥️ **System integration**: desktop shortcut, icon, standard Linux paths
