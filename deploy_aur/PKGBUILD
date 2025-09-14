@@ -1,13 +1,14 @@
 # Maintainer: mazix <mazix@bk.ru>
 
 pkgname=perplexity
-pkgver=1.1.3
-pkgrel=10
+pkgver=1.3.0
+pkgrel=1
 pkgdesc='Native Perplexity AI client for Linux'
 arch=('x86_64')
 url='https://github.com/mazixs/perplexity'
 license=('Apache 2.0')
-depends=('electron' 'wget')
+depends=('electron' 'desktop-file-utils')
+makedepends=('curl' 'wget')
 optdepends=('libappindicator-gtk3: for tray icon support')
 #conflicts=('')
 source=("perplexity.desktop"
@@ -20,17 +21,25 @@ sha256sums=('SKIP'
             'SKIP')
 
 prepare() {
-    # Download the latest binary package dynamically
-    local download_url=$(curl -s "https://api.github.com/repos/mazixs/perplexity/releases/latest" \
-        | grep "browser_download_url" \
-        | grep "pkg.tar.zst" \
-        | cut -d '"' -f 4)
-    
+    # Try to find a binary package that matches the current pkgver across all releases.
+    local api_url="https://api.github.com/repos/mazixs/perplexity/releases"
+    local download_url=$(curl -s "$api_url" \
+        | grep -oE "https://[^\"[:space:]]*/perplexity-${pkgver}-[0-9]+-x86_64\\.pkg\\.tar\\.zst" \
+        | head -n1)
+
+    # Fallback to 'latest' release if a pkgver-matched asset wasn't found
     if [ -z "$download_url" ]; then
-        echo "Error: Could not find download URL for latest release"
+        download_url=$(curl -s "https://api.github.com/repos/mazixs/perplexity/releases/latest" \
+            | grep "browser_download_url" \
+            | grep "pkg.tar.zst" \
+            | cut -d '"' -f 4)
+    fi
+
+    if [ -z "$download_url" ]; then
+        echo "Error: Could not find download URL for release (pkgver=${pkgver})"
         exit 1
     fi
-    
+
     echo "Downloading from: $download_url"
     wget -O "perplexity-latest.pkg.tar.zst" "$download_url"
 }
@@ -51,7 +60,7 @@ package() {
         cp -r etc "${pkgdir}/"
     fi
     
-    # Install additional files from source
+    # Override configs and additional files from source
     install -Dm644 "perplexity.desktop" "${pkgdir}/usr/share/applications/perplexity.desktop"
     install -Dm644 "perplexity.png" "${pkgdir}/usr/share/pixmaps/perplexity.png"
     install -Dm755 "launcher.sh" "${pkgdir}/usr/bin/perplexity"

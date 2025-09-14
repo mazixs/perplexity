@@ -11,11 +11,10 @@ permissions:
   packages: write
 
 env:
-  BIN_DIR: aur        # Исходная сборка из source
-  DEPLOY_DIR: deploy_aur  # Бинарная сборка для AUR
+  PKG_DIR: aur        # Директория с PKGBUILD (AUR, сборка из source)
 
 jobs:
-  build-bin:
+  build-release-aur:
     runs-on: ubuntu-latest
     container: archlinux:base
 
@@ -27,10 +26,10 @@ jobs:
           pacman-key --populate archlinux
 
       - name: Checkout
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5
 
-      - name: Install build dependencies
-        run: pacman -Syu --noconfirm base-devel git sudo
+      - name: Install build tools
+        run: pacman -Syu --noconfirm base-devel git openssh sudo libarchive
 
       - name: Create unprivileged builder
         run: |
@@ -40,37 +39,42 @@ jobs:
 
       - name: Patch PKGBUILD with current commit sha
         run: |
-          cd ${{ env.BIN_DIR }}
+          cd ${{ env.PKG_DIR }}
           sed -i "s|<COMMIT>|${{ github.sha }}|g" PKGBUILD
+
+      - name: Build package (.pkg.tar.zst)
+        run: |
+          cd ${{ env.PKG_DIR }}
+          sudo -u builder makepkg --syncdeps --clean --cleanbuild --noconfirm --force
+
+      - name: Generate .SRCINFO
+        run: |
+          cd ${{ env.PKG_DIR }}
           sudo -u builder makepkg --printsrcinfo > .SRCINFO
 
-  create-binary-release:
-    needs: build-bin
-    runs-on: ubuntu-latest
-    container: archlinux:base
-    outputs:
-      sha: ${{ steps.vars.outputs.sha }}
-      ver: ${{ steps.vars.outputs.ver }}
-      rel: ${{ steps.vars.outputs.rel }}
-
-    steps:
-      - name: Prepare pacman keyring
+      - name: Collect version variables
+        id: vars
         run: |
-          pacman -Sy --noconfirm archlinux-keyring gnupg
-          pacman-key --init
-          pacman-key --populate archlinux
+          cd ${{ env.PKG_DIR }}
+          echo "ver=$(grep '^pkgver=' PKGBUILD | cut -d= -f2)" >> $GITHUB_OUTPUT
+          echo "rel=$(grep '^pkgrel=' PKGBUILD | cut -d= -f2)" >> $GITHUB_OUTPUT
 
-      - name: Checkout
-        uses: actions/checkout@v4.2.2
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: arch-pkg
+          path: ${{ env.PKG_DIR }}/*.pkg.tar.zst
 
-      - name: Install auxiliary tools
-        run: pacman -Syu --noconfirm git base-devel openssh sudo
-
-      - name: Create unprivileged builder
-        run: |
-          useradd -m builder
-          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
-          chown -R builder:builder .
+      - name: Create GitHub release with package
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.vars.outputs.ver }}-${{ steps.vars.outputs.rel }}
+          name: Perplexity v${{ steps.vars.outputs.ver }}-${{ steps.vars.outputs.rel }}
+          draft: false
+          prerelease: false
+          files: ${{ env.PKG_DIR }}/*.pkg.tar.zst
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup SSH for AUR
         run: |
@@ -84,98 +88,25 @@ jobs:
           echo "  StrictHostKeyChecking no" >> /home/builder/.ssh/config
           chown -R builder:builder /home/builder/.ssh
 
-      - name: Update PKGBUILD version
-        run: |
-          cd deploy_aur
-          # Get current version from PKGBUILD and increment pkgrel
-          CURRENT_VER=$(grep '^pkgver=' PKGBUILD | cut -d= -f2)
-          CURRENT_REL=$(grep '^pkgrel=' PKGBUILD | cut -d= -f2)
-          NEW_REL=$((CURRENT_REL + 1))
-          
-          # Update PKGBUILD with incremented pkgrel
-          sed -i "s/pkgrel=.*/pkgrel=${NEW_REL}/" PKGBUILD
-          
-          # Generate .SRCINFO
-          sudo -u builder makepkg --printsrcinfo > .SRCINFO
-
       - name: Clone AUR repository
         run: |
           sudo -u builder git clone ssh://aur@aur.archlinux.org/perplexity.git aur_repo || true
-          if [ ! -d "aur_repo" ]; then
-            sudo -u builder mkdir aur_repo
+          if [ ! -d "aur_repo/.git" ]; then
+            mkdir -p aur_repo
             cd aur_repo
             sudo -u builder git init
             sudo -u builder git remote add origin ssh://aur@aur.archlinux.org/perplexity.git
           fi
 
-      - name: Update AUR package
+      - name: Push PKGBUILD to AUR
         run: |
           cd aur_repo
-          cp ../deploy_aur/PKGBUILD .
-          cp ../deploy_aur/.SRCINFO .
+          cp ../${{ env.PKG_DIR }}/PKGBUILD .
+          cp ../${{ env.PKG_DIR }}/.SRCINFO .
           
           sudo -u builder git config user.name "GitHub Actions"
           sudo -u builder git config user.email "actions@github.com"
           
           sudo -u builder git add PKGBUILD .SRCINFO
-          sudo -u builder git commit -m "Update to version from release ${{ github.sha }}" || true
+          sudo -u builder git commit -m "Update to v${{ steps.vars.outputs.ver }}-${{ steps.vars.outputs.rel }} (sha ${{ github.sha }})" || true
           sudo -u builder git push origin master || sudo -u builder git push origin main
-
-      - name: Build package (.pkg.tar.zst)
-        run: |
-          cd ${{ env.DEPLOY_DIR }}
-          sudo -u builder makepkg --syncdeps --clean --cleanbuild --noconfirm --force
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4.6.2
-        with:
-          name: arch-bin
-          path: ${{ env.DEPLOY_DIR }}/*.pkg.tar.zst
-
-      - name: Create GitHub release with package
-        uses: softprops/action-gh-release@v2.3.2
-        with:
-          tag_name: binary-${{ github.sha }}
-          name: Binary Release ${{ github.sha }}
-          draft: false
-          prerelease: false
-          files: ${{ env.DEPLOY_DIR }}/*.pkg.tar.zst
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Export vars for downstream job
-        id: vars
-        run: |
-          echo "sha=${GITHUB_SHA}"                               >> $GITHUB_OUTPUT
-          echo "ver=$(grep '^pkgver=' ${{ env.DEPLOY_DIR }}/PKGBUILD | cut -d= -f2)" >> $GITHUB_OUTPUT
-          echo "rel=$(grep '^pkgrel=' ${{ env.DEPLOY_DIR }}/PKGBUILD | cut -d= -f2)" >> $GITHUB_OUTPUT
-
-  deploy-to-aur:
-    needs: create-binary-release
-    runs-on: ubuntu-latest
-    container: archlinux:base
-
-    steps:
-      - name: Prepare pacman keyring
-        run: |
-          pacman -Sy --noconfirm archlinux-keyring gnupg
-          pacman-key --init
-          pacman-key --populate archlinux
-
-      - name: Checkout
-        uses: actions/checkout@v4.2.2
-
-      - name: Install auxiliary tools
-        run: pacman -Syu --noconfirm git base-devel libarchive sudo
-
-      - name: Create unprivileged builder
-        run: |
-          useradd -m builder
-          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
-          chown -R builder:builder .
-
-      - name: Patch PKGBUILD with current commit sha
-        run: |
-          cd ${{ env.BIN_DIR }}
-          sed -i "s|<COMMIT>|${{ github.sha }}|g" PKGBUILD
-          sudo -u builder makepkg --printsrcinfo > .SRCINFO

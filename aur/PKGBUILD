@@ -1,34 +1,37 @@
 # Maintainer: mazix <mazix@bk.ru>
 
 pkgname=perplexity
-pkgver=1.1.3
+pkgver=1.3.0
 pkgrel=1
+commit='<COMMIT>'
 pkgdesc='Native Perplexity AI client for Linux'
 arch=('x86_64')
 url='https://github.com/mazixs/perplexity'
 license=('Apache 2.0')
 depends=('electron')
-makedepends=('npm')
+makedepends=('git' 'npm')
 provides=('perplexity')
-#conflicts=('')
+optdepends=('libappindicator-gtk3: for tray icon support' 'desktop-file-utils: update desktop database for URL scheme')
 
-# Используем исходники из GitHub
+# Источник: VCS (фиксированный коммит)
 source=(
-  "${pkgname}-${pkgver}.tar.gz::https://github.com/mazixs/perplexity/archive/<COMMIT>.tar.gz"
+  "git+https://github.com/mazixs/perplexity.git#commit=${commit}"
   'perplexity.desktop'
   'perplexity.png'
+  'launcher.sh'
+  'default.conf'
 )
-sha256sums=('SKIP' 'SKIP' 'SKIP')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
 
 build() {
-  cd "${srcdir}/${pkgname}-<COMMIT>/src"
+  cd "${srcdir}/${pkgname}/src"
   
   # Устанавливаем npm зависимости
   npm install --production
 }
 
 package() {
-  cd "${srcdir}/${pkgname}-<COMMIT>"
+  cd "${srcdir}/${pkgname}"
 
   # Устанавливаем исходные файлы приложения
   install -dm755 "${pkgdir}/usr/lib/${pkgname}"
@@ -39,8 +42,15 @@ package() {
     cp -r src/node_modules "${pkgdir}/usr/lib/${pkgname}/"
   fi
 
-  # Устанавливаем исполняемый файл
-  install -Dm755 usr/bin/perplexity "${pkgdir}/usr/bin/perplexity"
+  # При наличии локальных библиотек в репозитории — добавить их в пакет
+  if [ -d "usr/lib" ]; then
+    install -dm755 "${pkgdir}/usr/lib/${pkgname}/vendor-libs"
+    cp -r usr/lib/. "${pkgdir}/usr/lib/${pkgname}/vendor-libs/"
+  fi
+
+  # Устанавливаем исполняемый файл (лаунчер) и конфиг по умолчанию
+  install -Dm755 "${srcdir}/launcher.sh" "${pkgdir}/usr/bin/perplexity"
+  install -Dm644 "${srcdir}/default.conf" "${pkgdir}/etc/perplexity/default.conf"
 
   # Устанавливаем desktop файл и иконку
   install -Dm644 "${srcdir}/perplexity.desktop" \

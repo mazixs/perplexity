@@ -1,17 +1,17 @@
 {
   "name": "Perplexity",
-  "version": "1.1.3",
+  "version": "1.3.0",
   "description": "",
   "main": "main.js",
   "author": "Perplexity <ali.shobeiri@perplexity.ai>",
   "license": "UNLICENSED",
   "dependencies": {
     "@todesktop/plugin-ipc": "^0.11.0",
-    "@todesktop/runtime": "1.5.7-beta.1"
+    "@todesktop/runtime": "^2.1.2"
   },
-  "desktopifyServerVersion": "1.572.0",
+  "desktopifyServerVersion": "1.597.0",
   "productName": "Perplexity",
   "repository": "https://github.com/ToDesktop/desktopify/",
   "electronVersion": "33.3.2",
-  "desktopifyVersion": "6.9.0"
+  "desktopifyVersion": "6.10.0"
 }
