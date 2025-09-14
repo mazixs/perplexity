@@ -108,10 +108,14 @@ jobs:
           cp ../${{ env.PKG_DIR }}/perplexity.png .
           cp ../${{ env.PKG_DIR }}/launcher.sh .
           cp ../${{ env.PKG_DIR }}/default.conf .
+          # Install script for desktop database & mime registration
+          if [ -f ../${{ env.PKG_DIR }}/perplexity.install ]; then
+            cp ../${{ env.PKG_DIR }}/perplexity.install .
+          fi
           
           sudo -u builder git config user.name "GitHub Actions"
           sudo -u builder git config user.email "actions@github.com"
           
-          sudo -u builder git add PKGBUILD .SRCINFO perplexity.desktop perplexity.png launcher.sh default.conf
+          sudo -u builder git add PKGBUILD .SRCINFO perplexity.desktop perplexity.png launcher.sh default.conf perplexity.install || true
           sudo -u builder git commit -m "Update to v${{ steps.vars.outputs.ver }}-${{ steps.vars.outputs.rel }} (sha ${{ github.sha }})" || true
           sudo -u builder git push origin master || sudo -u builder git push origin main
