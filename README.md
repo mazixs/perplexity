@@ -55,7 +55,7 @@
 ### 📦 **Installation**
 - 🏗️ **AUR package** — simple installation via makepkg
 - 🤖 **CI/CD** — automated builds
-- 📋 **Dependencies** — only Electron and Node.js
+- 📋 **Dependencies** — only Electron (runtime)
 - 🔄 **Updates** — through standard Arch tools
 
 </td>
@@ -71,14 +71,14 @@ perplexity/
 ├── 🎯 src/                     # Application sources (Electron)
 │   ├── main.js                 # Electron main process
 │   ├── preload.js              # Preload script
-│   ├── package.json            # Dependencies (v1.1.3)
+│   ├── package.json            # Dependencies (v1.3.0)
 │   └── icons/                  # Application icons
 ├── 📦 aur/                     # AUR package (source build)
 │   ├── PKGBUILD               # AUR build script
 │   ├── launcher.sh            # Application launcher
 │   ├── perplexity.desktop     # Desktop entry
 │   └── default.conf           # Default configuration
-├── 🚀 deploy_aur/             # Binary build for releases
+├── 🚫 deploy_aur/             # Deprecated (not used)
 ├── 📚 docs/                   # Documentation
 │   ├── architecture.md        # Project architecture
 │   └── *.md                   # Technical documentation
@@ -131,7 +131,7 @@ perplexity
 ### 📋 System Requirements
 
 - **OS:** Arch Linux (or compatible distributions)
-- **Dependencies:** `electron`, `nodejs`, `npm`
+- **Dependencies:** `electron`
 - **Architecture:** x86_64
 - **Memory:** Minimum 512 MB RAM
 
@@ -213,9 +213,9 @@ DEBUG_MODE=false
 The project uses automated builds through GitHub Actions:
 
 - 🤖 **Auto-build** on every commit to `main`
-- 📦 **Creating AUR packages** (source and binary builds)
-- 🚀 **Automatic publishing** to AUR repository
-- 📋 **Creating releases** with ready `.pkg.tar.zst` files
+- 📦 **Build AUR package from source** (makepkg)
+- 📋 **Create GitHub release** attaching `.pkg.tar.zst`
+- 🚀 **Push to AUR**: PKGBUILD + .SRCINFO + source files
 
 ### 🏗️ Local Build
 
@@ -248,17 +248,16 @@ sudo pacman -U perplexity-*.pkg.tar.zst
 |-----------|---------|-------------|
 | **Electron** | 33.3.2 | Desktop application framework |
 | **Node.js** | Latest | JavaScript runtime |
-| **ToDesktop Runtime** | 1.5.7-beta.1 | Additional capabilities |
-| **Package Version** | 1.1.3 | Current application version |
+| **ToDesktop Runtime** | ^2.1.2 | Additional capabilities |
+| **Package Version** | 1.3.0 | Current application version |
 
 ---
 
 ## 📚 Documentation
 
-- 📖 [Project Architecture](docs/architecture.md) — technical documentation
-- 🔍 [Security Audit](docs/audit.md) — security analysis
-- 📋 [Development Tasks](docs/task.md) — plans and TODO
-- 🏗️ [PKGBUILD Solutions](docs/pkgbuild-architecture-solution.md) — architectural decisions
+- 📖 [Project Architecture](docs/architecture.md)
+- ⚙️ [CI/CD for AUR](docs/CI_CD_AUR.md)
+- 🔍 [Security Audit](docs/audit.md)
 
 ---
 

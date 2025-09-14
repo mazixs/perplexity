@@ -60,7 +60,7 @@ jobs:
           echo "rel=$(grep '^pkgrel=' PKGBUILD | cut -d= -f2)" >> $GITHUB_OUTPUT
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v4
         with:
           name: arch-pkg
           path: ${{ env.PKG_DIR }}/*.pkg.tar.zst
@@ -103,10 +103,15 @@ jobs:
           cd aur_repo
           cp ../${{ env.PKG_DIR }}/PKGBUILD .
           cp ../${{ env.PKG_DIR }}/.SRCINFO .
+          # Copy auxiliary source files referenced by PKGBUILD
+          cp ../${{ env.PKG_DIR }}/perplexity.desktop .
+          cp ../${{ env.PKG_DIR }}/perplexity.png .
+          cp ../${{ env.PKG_DIR }}/launcher.sh .
+          cp ../${{ env.PKG_DIR }}/default.conf .
           
           sudo -u builder git config user.name "GitHub Actions"
           sudo -u builder git config user.email "actions@github.com"
           
-          sudo -u builder git add PKGBUILD .SRCINFO
+          sudo -u builder git add PKGBUILD .SRCINFO perplexity.desktop perplexity.png launcher.sh default.conf
           sudo -u builder git commit -m "Update to v${{ steps.vars.outputs.ver }}-${{ steps.vars.outputs.rel }} (sha ${{ github.sha }})" || true
           sudo -u builder git push origin master || sudo -u builder git push origin main

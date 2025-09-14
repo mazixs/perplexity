@@ -19,12 +19,6 @@ project-root/
 │   ├── default.conf
 │   ├── perplexity.desktop
 │   └── perplexity.png
-├── deploy_aur/
-│   ├── PKGBUILD
-│   ├── launcher.sh
-│   ├── default.conf
-│   ├── perplexity.desktop
-│   └── perplexity.png
 ├── src/
 │   └── ... (исходники Electron)
 └── docs/
@@ -35,34 +29,16 @@ project-root/
 
 ## 3. Workflow GitHub Actions: build_and_publish.yml
 
-### Ключевые этапы пайплайна
-
-#### 1. build-bin
+### Единый job: build-release-aur
 - **Контейнер**: `archlinux:base`
-- **Действия**:
-  - Инициализация keyring, установка зависимостей
-  - Создание пользователя `builder`
-  - Патчинг PKGBUILD (замена `<COMMIT>` на `${{ github.sha }}`)
-  - Генерация `.SRCINFO`
-  - Сборка исходного пакета (makepkg)
-
-#### 2. create-binary-release
-- **Контейнер**: `archlinux:base`
-- **Действия**:
-  - Инкрементирование `pkgrel` в `deploy_aur/PKGBUILD`
-  - Генерация `.SRCINFO`
-  - Клонирование AUR-репозитория через SSH
-  - Копирование и коммит новых файлов в AUR
-  - Сборка бинарного пакета (`makepkg --syncdeps --clean --cleanbuild`)
-  - Загрузка артефакта (`actions/upload-artifact`)
-  - Публикация релиза (`softprops/action-gh-release`)
-
-#### 3. deploy-to-aur
-- **Контейнер**: `archlinux:base`
-- **Действия**:
-  - Патчинг PKGBUILD с текущим SHA
-  - Генерация `.SRCINFO`
-  - Публикация в AUR
+- **Основные шаги**:
+  1. Инициализация keyring, установка инструментов (`base-devel`, `git`, `openssh`, `libarchive`, `sudo`)
+  2. Создание пользователя `builder`
+  3. Патчинг `aur/PKGBUILD`: замена `<COMMIT>` на `${{ github.sha }}`
+  4. Сборка пакета: `makepkg --syncdeps --clean --cleanbuild`
+  5. Генерация `.SRCINFO`: `makepkg --printsrcinfo > .SRCINFO`
+  6. Создание GitHub Release с тегом `v<pkgver>-<pkgrel>` и загрузкой `.pkg.tar.zst`
+  7. Настройка SSH и пуш `PKGBUILD` + `.SRCINFO` в AUR (`perplexity.git`)
 
 ---
 
@@ -72,19 +48,8 @@ project-root/
 ```yaml
 - name: Patch PKGBUILD with current commit sha
   run: |
-    cd ${{ env.BIN_DIR }}
+    cd ${{ env.PKG_DIR }}
     sed -i "s|<COMMIT>|${{ github.sha }}|g" PKGBUILD
-    sudo -u builder makepkg --printsrcinfo > .SRCINFO
-```
-
-### Пример: Инкрементирование pkgrel
-```yaml
-- name: Update PKGBUILD version
-  run: |
-    cd deploy_aur
-    CURRENT_REL=$(grep '^pkgrel=' PKGBUILD | cut -d= -f2)
-    NEW_REL=$((CURRENT_REL + 1))
-    sed -i "s/pkgrel=.*/pkgrel=${NEW_REL}/" PKGBUILD
     sudo -u builder makepkg --printsrcinfo > .SRCINFO
 ```
 
@@ -97,18 +62,18 @@ project-root/
 - name: Update AUR package
   run: |
     cd aur_repo
-    cp ../deploy_aur/PKGBUILD .
-    cp ../deploy_aur/.SRCINFO .
+    cp ../${{ env.PKG_DIR }}/PKGBUILD .
+    cp ../${{ env.PKG_DIR }}/.SRCINFO .
     sudo -u builder git add PKGBUILD .SRCINFO
     sudo -u builder git commit -m "Update to version from release ${{ github.sha }}" || true
     sudo -u builder git push origin master || sudo -u builder git push origin main
 ```
 
-### Пример: Сборка бинарного пакета
+### Пример: Сборка пакета
 ```yaml
 - name: Build package (.pkg.tar.zst)
   run: |
-    cd ${{ env.DEPLOY_DIR }}
+    cd ${{ env.PKG_DIR }}
     sudo -u builder makepkg --syncdeps --clean --cleanbuild --noconfirm --force
 ```
 
@@ -117,9 +82,9 @@ project-root/
 - name: Create GitHub release with package
   uses: softprops/action-gh-release@v2
   with:
-    tag_name: binary-${{ github.sha }}
-    name: Binary Release ${{ github.sha }}
-    files: ${{ env.DEPLOY_DIR }}/*.pkg.tar.zst
+    tag_name: v${{ steps.vars.outputs.ver }}-${{ steps.vars.outputs.rel }}
+    name: Perplexity v${{ steps.vars.outputs.ver }}-${{ steps.vars.outputs.rel }}
+    files: ${{ env.PKG_DIR }}/*.pkg.tar.zst
   env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -128,15 +93,10 @@ project-root/
 
 ## 5. PKGBUILD: шаблоны и best practices
 
-- **Исходная сборка** (`aur/PKGBUILD`): 
-  - Использует исходники с GitHub, патчится SHA коммита
-  - Сборка через `npm install --production`
-  - Копирование node_modules, launcher, desktop-файла, иконки
-
-- **Бинарная сборка** (`deploy_aur/PKGBUILD`):
-  - Динамически скачивает последний бинарный релиз с GitHub Releases
-  - Распаковывает через `bsdtar`
-  - Копирует файлы в `${pkgdir}`
+- **Сборка из исходников** (`aur/PKGBUILD`): 
+  - Источник: `git+https://…#commit=<COMMIT>` (заменяется в CI на `${{ github.sha }}`)
+  - Сборка: `npm install --production`, копирование `node_modules`, launcher, `.desktop`, иконок
+  - Вендорные библиотеки при необходимости кладутся в `/usr/lib/perplexity/vendor-libs` и активируются через `LD_LIBRARY_PATH` в `launcher.sh`
 
 ---
 
