@@ -185,7 +185,6 @@ Perplexity Native — это Electron-обёртка для веб-прилож�
    ```bash
    # Создать файл usr/lib/perplexity/default.conf
    ELECTRON_ARGS="--no-sandbox"
-   TRAY_ENABLED=1
    DEV_TOOLS=0
    ```
 

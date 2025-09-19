@@ -55,7 +55,7 @@
 ### 📦 **Installation**
 - 🏗️ **AUR package** — simple installation via makepkg
 - 🤖 **CI/CD** — automated builds
-- 📋 **Dependencies** — only Electron (runtime)
+- 📋 **Dependencies** — Electron + desktop-file-utils + xdg-utils (runtime); optional: libappindicator-gtk3
 - 🔄 **Updates** — through standard Arch tools
 
 </td>
@@ -78,7 +78,7 @@ perplexity/
 │   ├── launcher.sh            # Application launcher
 │   ├── perplexity.desktop     # Desktop entry
 │   └── default.conf           # Default configuration
-├── 🚫 deploy_aur/             # Deprecated (not used)
+├── 🚫 deploy_aur/             # Deprecated; experimental binary repack (not used in CI)
 ├── 📚 docs/                   # Documentation
 │   ├── architecture.md        # Project architecture
 │   └── *.md                   # Technical documentation
@@ -86,6 +86,7 @@ perplexity/
 │   └── build_and_publish.yml  # Auto-build and publish
 └── 🗂️ usr/                    # Linux system files
     ├── bin/perplexity         # Executable file
+    ├── lib/                   # Vendor libraries (optional, fallback via LD_LIBRARY_PATH)
     └── share/                 # Resources (icons, desktop files)
 ```
 
@@ -131,7 +132,7 @@ perplexity
 ### 📋 System Requirements
 
 - **OS:** Arch Linux (or compatible distributions)
-- **Dependencies:** `electron`
+- **Dependencies:** `electron`, `desktop-file-utils`, `xdg-utils`
 - **Architecture:** x86_64
 - **Memory:** Minimum 512 MB RAM
 
@@ -141,7 +142,9 @@ perplexity
 
 ### 📝 Configuration File
 
-All settings are stored in: `$HOME/.config/Perplexity/perplexity.conf`
+All settings are stored at: `$XDG_CONFIG_HOME/Perplexity/perplexity.conf` (falls back to `$HOME/.config/Perplexity/perplexity.conf`). You can override via the `PERPLEXITY_CONFIG` environment variable.
+
+On first run, the launcher copies `/etc/perplexity/default.conf` to the user configuration path.
 
 <details>
 <summary><b>🔧 Configuration Example</b></summary>
@@ -153,8 +156,7 @@ All settings are stored in: `$HOME/.config/Perplexity/perplexity.conf`
 # Path to custom Electron binary (optional)
 ELECTRON_CUSTOM_BIN="/usr/bin/electron"
 
-# Enable tray icon (true/false)
-TRAY_ENABLED=true
+# Tray is managed by ToDesktop runtime; not configurable via config file
 
 # Enable developer tools (true/false)
 DEV_TOOLS=false
@@ -173,7 +175,6 @@ DEBUG_MODE=false
 | Parameter | Description | Values |
 |-----------|-------------|--------|
 | `ELECTRON_CUSTOM_BIN` | Path to custom Electron | File path |
-| `TRAY_ENABLED` | Show tray icon | `true`/`false` |
 | `DEV_TOOLS` | Developer tools | `true`/`false` |
 | `ELECTRON_ARGS` | Additional flags | [Electron Flags](https://www.electronjs.org/docs/latest/api/command-line-switches/) |
 | `DEBUG_MODE` | Debug mode | `true`/`false` |
@@ -184,8 +185,8 @@ DEBUG_MODE=false
 
 ### 📱 System Tray
 
-- 🎯 **Enabled by default** (can be disabled in configuration)
-- 📋 **Tray menu:**
+- 🎯 Managed by ToDesktop runtime — not configurable via config file
+  - 📋 **Tray menu:**
   - 🚀 **Open** — launch main window
   - ⚡ **Autostart** — launch at system startup
   - ❌ **Exit** — close application
@@ -231,7 +232,7 @@ cd perplexity
 cd aur
 
 # Install build dependencies
-sudo pacman -S base-devel nodejs npm electron
+sudo pacman -S base-devel nodejs npm electron desktop-file-utils xdg-utils
 
 # Build the package
 makepkg -s
