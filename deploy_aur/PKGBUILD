@@ -2,7 +2,7 @@
 
 pkgname=perplexity
 pkgver=1.3.0
-pkgrel=2
+pkgrel=4
 pkgdesc='Native Perplexity AI client for Linux'
 arch=('x86_64')
 url='https://github.com/mazixs/perplexity'
@@ -25,14 +25,29 @@ sha256sums=('SKIP'
 install=perplexity.install
 
 prepare() {
-    # Try to find a binary package that matches the current pkgver across all releases.
+    # Try to find a binary package that matches the current pkgver-pkgrel across all releases.
     local api_url="https://api.github.com/repos/mazixs/perplexity/releases"
+    
+    # Пытаемся найти релиз с точным соответствием тегу v{pkgver}-{pkgrel}
+    local tag_pattern="v${pkgver}-${pkgrel}"
     local download_url=$(curl -s "$api_url" \
-        | grep -oE "https://[^\"[:space:]]*/perplexity-${pkgver}-[0-9]+-x86_64\\.pkg\\.tar\\.zst" \
+        | grep -A 10 "\"tag_name\": \"${tag_pattern}\"" \
+        | grep "browser_download_url" \
+        | grep "perplexity-.*\\.pkg\\.tar\\.zst" \
+        | cut -d '"' -f 4 \
         | head -n1)
 
-    # Fallback to 'latest' release if a pkgver-matched asset wasn't found
+    # Fallback 1: ищем любой релиз с нужной версией pkgver
     if [ -z "$download_url" ]; then
+        echo "Точный тег не найден, ищем по версии ${pkgver}..."
+        download_url=$(curl -s "$api_url" \
+            | grep -oE "https://[^\"[:space:]]*/perplexity-${pkgver}-[0-9]+-x86_64\\.pkg\\.tar\\.zst" \
+            | head -n1)
+    fi
+
+    # Fallback 2: используем latest release
+    if [ -z "$download_url" ]; then
+        echo "Релиз версии ${pkgver} не найден, используем latest..."
         download_url=$(curl -s "https://api.github.com/repos/mazixs/perplexity/releases/latest" \
             | grep "browser_download_url" \
             | grep "pkg.tar.zst" \
@@ -40,7 +55,7 @@ prepare() {
     fi
 
     if [ -z "$download_url" ]; then
-        echo "Error: Could not find download URL for release (pkgver=${pkgver})"
+        echo "Error: Could not find download URL for release (pkgver=${pkgver}, pkgrel=${pkgrel})"
         exit 1
     fi
 
