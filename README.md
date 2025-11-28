@@ -78,7 +78,6 @@ perplexity/
 │   ├── launcher.sh            # Application launcher
 │   ├── perplexity.desktop     # Desktop entry
 │   └── default.conf           # Default configuration
-├── 🚫 deploy_aur/             # Deprecated; experimental binary repack (not used in CI)
 ├── 📚 docs/                   # Documentation
 │   ├── architecture.md        # Project architecture
 │   └── *.md                   # Technical documentation
@@ -86,7 +85,6 @@ perplexity/
 │   └── build_and_publish.yml  # Auto-build and publish
 └── 🗂️ usr/                    # Linux system files
     ├── bin/perplexity         # Executable file
-    ├── lib/                   # Vendor libraries (optional, fallback via LD_LIBRARY_PATH)
     └── share/                 # Resources (icons, desktop files)
 ```
 
@@ -247,10 +245,13 @@ sudo pacman -U perplexity-*.pkg.tar.zst
 
 | Component | Version | Description |
 |-----------|---------|-------------|
-| **Electron** | 33.3.2 | Desktop application framework |
+| **Electron** | System (latest) | Uses system-provided Electron (Arch package) |
+| **Target Electron** | 38.1.0 | Version used in upstream development |
 | **Node.js** | Latest | JavaScript runtime |
 | **ToDesktop Runtime** | ^2.1.2 | Additional capabilities |
-| **Package Version** | 1.3.0 | Current application version |
+| **Package Version** | 1.4.0 | Current application version |
+
+> **Note:** You can use a specific Electron version by setting `ELECTRON_CUSTOM_BIN` in the configuration file.
 
 ---
 
