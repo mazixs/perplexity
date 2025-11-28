@@ -1,7 +1,0 @@
-#!/bin/sh
-# Устанавливаем стандартные пути для конфига и кэша, если не заданы
-export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
-
-# Можно передавать дополнительные переменные окружения или флаги через .desktop или вручную
-exec electron /usr/lib/perplexity "$@" 

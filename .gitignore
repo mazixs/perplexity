@@ -21,6 +21,8 @@ build/
 config/
 PerplexitySetup/
 Пример/
+squashfs-root/
+
 # Python
 __pycache__/
 *.pyc

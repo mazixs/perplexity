@@ -2,7 +2,7 @@
 
 pkgname=perplexity
 pkgver=1.4.0
-pkgrel=1
+pkgrel=2
 commit='<COMMIT>'
 pkgdesc='Native Perplexity AI client for Linux'
 arch=('x86_64')
@@ -56,9 +56,26 @@ package() {
   install -Dm755 "${srcdir}/launcher.sh" "${pkgdir}/usr/bin/perplexity"
   install -Dm644 "${srcdir}/default.conf" "${pkgdir}/etc/perplexity/default.conf"
 
-  # Устанавливаем desktop файл и иконку
+  # Устанавливаем desktop файл
   install -Dm644 "${srcdir}/perplexity.desktop" \
                  "${pkgdir}/usr/share/applications/perplexity.desktop"
-  install -Dm644 "${srcdir}/perplexity.png" \
-                 "${pkgdir}/usr/share/pixmaps/perplexity.png"
+
+  # Устанавливаем иконки из репозитория (все размеры)
+  if [ -d "usr/share/icons" ]; then
+    install -dm755 "${pkgdir}/usr/share/icons"
+    cp -r usr/share/icons/* "${pkgdir}/usr/share/icons/"
+    
+    # Хак: переименовываем 512x512 иконку в Perplexity.png (с большой буквы)
+    # чтобы соответствовать StartupWMClass=Perplexity в некоторых DE
+    if [ -f "${pkgdir}/usr/share/icons/hicolor/512x512/apps/Perplexity.png" ]; then
+       # Уже с большой буквы (если в репо так)
+       :
+    elif [ -f "${pkgdir}/usr/share/icons/hicolor/512x512/apps/perplexity.png" ]; then
+       mv "${pkgdir}/usr/share/icons/hicolor/512x512/apps/perplexity.png" \
+          "${pkgdir}/usr/share/icons/hicolor/512x512/apps/Perplexity.png"
+    fi
+  fi
+
+  # Fallback: копируем 512px иконку в pixmaps как Perplexity.png
+  install -Dm644 "${srcdir}/perplexity.png" "${pkgdir}/usr/share/pixmaps/Perplexity.png"
 }
