@@ -1,123 +1,69 @@
 <div align="center">
 
 # Perplexity
-### (native app for linux)
+### Native Linux wrapper
 
 <p align="center">
   <img src="aur/perplexity.png" alt="Perplexity Logo" width="128" height="128">
 </p>
 
-**Native desktop client for Perplexity on Linux**  
-*Powered by Electron • Secure • Private*
+**Native desktop wrapper for Perplexity on Linux**  
+*Electron-based launcher with Arch/AUR packaging*
 
 [![AUR Version](https://img.shields.io/aur/version/perplexity?style=for-the-badge&logo=archlinux&logoColor=white&color=1793d1)](https://aur.archlinux.org/packages/perplexity)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/mazixs/perplexity/build_and_publish.yml?style=for-the-badge&logo=github&logoColor=white)](https://github.com/mazixs/perplexity/actions) [![License](https://img.shields.io/github/license/mazixs/perplexity?style=for-the-badge&color=green)](LICENSE) [![Electron](https://img.shields.io/badge/Electron-System-47848f?style=for-the-badge&logo=electron&logoColor=white)](https://electronjs.org/)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/mazixs/perplexity/build_and_publish.yml?style=for-the-badge&logo=github&logoColor=white)](https://github.com/mazixs/perplexity/actions)
+[![License Scope](https://img.shields.io/badge/License-Mixed%20(UNLICENSED%20upstream%20%2B%20Apache--2.0%20wrapper)-blue?style=for-the-badge)](LICENSE)
+[![Electron](https://img.shields.io/badge/Electron-38.2.0%20target-47848f?style=for-the-badge&logo=electron&logoColor=white)](https://electronjs.org/)
 
 </div>
 
 ---
 
-## ✨ Features
+## Features
 
-<table>
-<tr>
-<td width="50%">
-
-### 🚀 **Performance**
-- ⚡ **Native operation** — no Wine or emulation
-- 🔧 **Electron** — latest stable version
-- 💾 **Lightweight** — minimal resource consumption
-- 🎯 **Optimization** — tuned configuration for Linux
-
-</td>
-<td width="50%">
-
-### 🔒 **Security**
-- 🛡️ **Auto-updates disabled** — full control
-- 🔐 **Privacy** — no background connections
-- 🏠 **Local configuration** — all settings on your PC
-- ✅ **Open source** — transparency and trust
-
-</td>
-</tr>
-<tr>
-<td width="50%">
-
-### 🖥️ **Integration**
-- 📱 **System integration** — shortcut, icon, menu
-- 🎨 **Native look** — follows Linux standards
-- 🔧 **Flexible configuration** — configuration file
-- 📋 **Tray** — convenient panel management
-
-</td>
-<td width="50%">
-
-### 📦 **Installation**
-- 🏗️ **AUR package** — simple installation via makepkg
-- 🤖 **CI/CD** — automated builds
-- 📋 **Dependencies** — Electron + desktop-file-utils + xdg-utils (runtime); optional: libappindicator-gtk3
-- 🔄 **Updates** — through standard Arch tools
-
-</td>
-</tr>
-</table>
+- Native Linux packaging (no Wine/emulation).
+- System Electron runtime with launcher-based configuration.
+- AUR-first distribution with automated CI pipeline.
+- Desktop integration: menu entry, icons, URI handler.
+- DevTools disabled by default (`DEV_TOOLS=0`).
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 perplexity/
-├── 🎯 src/                     # Application sources (Electron)
+├── src/                        # Application sources (Electron)
 │   ├── main.js                 # Electron main process
 │   ├── preload.js              # Preload script
-│   ├── package.json            # Dependencies (v1.3.0)
+│   ├── package.json            # Dependencies (v1.5.1)
 │   └── icons/                  # Application icons
-├── 📦 aur/                     # AUR package (source build)
-│   ├── PKGBUILD               # AUR build script
-│   ├── launcher.sh            # Application launcher
+├── aur/                        # AUR package assets
+│   ├── PKGBUILD               # AUR build script (CI-injected commit pin)
+│   ├── launcher.sh            # Runtime launcher (/usr/bin/perplexity)
 │   ├── perplexity.desktop     # Desktop entry
-│   └── default.conf           # Default configuration
-├── 📚 docs/                   # Documentation
-│   ├── architecture.md        # Project architecture
-│   └── *.md                   # Technical documentation
-├── ⚙️ .github/workflows/      # CI/CD automation
-│   └── build_and_publish.yml  # Auto-build and publish
-└── 🗂️ usr/                    # Linux system files
+│   └── default.conf           # Default runtime config
+├── .github/workflows/          # CI/CD automation
+│   ├── build_and_publish.yml  # Build, release, AUR push
+│   └── cleanup-artifacts.yml  # Artifact retention cleanup
+└── usr/                        # Linux system files
     ├── bin/perplexity         # Executable file
     └── share/                 # Resources (icons, desktop files)
 ```
 
 ---
 
-## 🚀 Installation
+## Installation
 
-### 📦 Arch Linux / AUR (Recommended)
+### Arch Linux / AUR (Recommended)
 
-<details>
-<summary><b>🔧 Installation from AUR</b></summary>
-
+Use an AUR helper:
 ```bash
-# Clone the repository
-git clone https://github.com/mazixs/perplexity.git
-cd perplexity/aur
-
-# Build and install the package
-makepkg -si
-```
-
-**Or use an AUR helper:**
-```bash
-# With yay
 yay -S perplexity
-
-# With paru
 paru -S perplexity
 ```
 
-</details>
-
-### 🎯 Running the Application
+### Running the Application
 
 ```bash
 # From terminal
@@ -127,25 +73,26 @@ perplexity
 # Applications → Internet → Perplexity
 ```
 
-### 📋 System Requirements
+### System Requirements
 
 - **OS:** Arch Linux (or compatible distributions)
-- **Dependencies:** `electron`, `desktop-file-utils`, `xdg-utils`
+- **Runtime dependencies:** `electron`, `desktop-file-utils`, `xdg-utils`
+- **Optional:** `libappindicator-gtk3` (tray icon support)
 - **Architecture:** x86_64
 - **Memory:** Minimum 512 MB RAM
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
-### 📝 Configuration File
+### Configuration File
 
 All settings are stored at: `$XDG_CONFIG_HOME/Perplexity/perplexity.conf` (falls back to `$HOME/.config/Perplexity/perplexity.conf`). You can override via the `PERPLEXITY_CONFIG` environment variable.
 
 On first run, the launcher copies `/etc/perplexity/default.conf` to the user configuration path.
 
 <details>
-<summary><b>🔧 Configuration Example</b></summary>
+<summary><b>Configuration Example</b></summary>
 
 ```bash
 # Perplexity Configuration File
@@ -156,118 +103,78 @@ ELECTRON_CUSTOM_BIN="/usr/bin/electron"
 
 # Tray is managed by ToDesktop runtime; not configurable via config file
 
-# Enable developer tools (true/false)
-DEV_TOOLS=false
+# Enable developer tools (0/1, false/true)
+DEV_TOOLS=0
 
 # Additional Electron flags
 ELECTRON_ARGS="--disable-web-security --disable-features=VizDisplayCompositor"
 
-# Debug mode (true/false)
-DEBUG_MODE=false
 ```
 
 </details>
 
-### 🎛️ Available Parameters
+### Available Parameters
 
 | Parameter | Description | Values |
 |-----------|-------------|--------|
 | `ELECTRON_CUSTOM_BIN` | Path to custom Electron | File path |
-| `DEV_TOOLS` | Developer tools | `true`/`false` |
+| `DEV_TOOLS` | Developer tools | `0`/`1` or `false`/`true` |
 | `ELECTRON_ARGS` | Additional flags | [Electron Flags](https://www.electronjs.org/docs/latest/api/command-line-switches/) |
-| `DEBUG_MODE` | Debug mode | `true`/`false` |
+
+### Launch Flow
+
+`perplexity.desktop` -> `/usr/bin/perplexity` (`aur/launcher.sh`) -> `/usr/lib/perplexity`
 
 ---
 
-## 🖱️ Features and Capabilities
+## Runtime Notes
 
-### 📱 System Tray
+### System Tray
 
-- 🎯 Managed by ToDesktop runtime — not configurable via config file
-  - 📋 **Tray menu:**
-  - 🚀 **Open** — launch main window
-  - ⚡ **Autostart** — launch at system startup
-  - ❌ **Exit** — close application
+- Managed by ToDesktop runtime and not configurable via `default.conf`.
 
-### 🔒 Privacy and Security
+### Privacy and Security
 
-- ✅ **Auto-updates disabled** — no unexpected updates
-- 🚫 **No background activity** — application doesn't "phone home"
-- 🛡️ **Local settings** — all data stays on your computer
-- 🔐 **Update control** — updates only through package manager
+- Auto-updates are disabled in the wrapper.
+- Configuration is local (`$XDG_CONFIG_HOME` or `$HOME/.config`).
+- Network traffic comes from the upstream Perplexity web application runtime.
 
-### 🎨 Desktop Integration
+### Desktop Integration
 
-- 🖼️ **Native icons** — follows freedesktop.org standards
-- 📱 **Desktop entry** — correct display in application menu
-- 🎯 **Standard paths** — uses XDG Base Directory Specification
-- ⌨️ **Hotkeys** — support for system key combinations
+- Native icons (freedesktop.org layout)
+- Desktop entry and URI handler integration
+- XDG-compatible config path behavior
 
 ---
 
-## 🛠️ Development and Build
+## CI/CD
 
-### 🔄 CI/CD Pipeline
+Pipeline jobs in `.github/workflows/build_and_publish.yml`:
 
-The project uses automated builds through GitHub Actions:
+- `build-package`: build `.pkg.tar.zst` + generate `.SRCINFO`
+- `publish-release`: publish GitHub Release with package artifact
+- `push-aur`: sync PKGBUILD/.SRCINFO/assets to AUR
 
-- 🤖 **Auto-build** on every commit to `main`
-- 📦 **Build AUR package from source** (makepkg)
-- 📋 **Create GitHub release** attaching `.pkg.tar.zst`
-- 🚀 **Push to AUR**: PKGBUILD + .SRCINFO + source files
+Note: commit pinning in `aur/PKGBUILD` is injected in CI.
 
-### 🏗️ Local Build
-
-<details>
-<summary><b>🔧 Build Instructions</b></summary>
-
-```bash
-# Clone the repository
-git clone https://github.com/mazixs/perplexity.git
-cd perplexity
-
-# Navigate to AUR directory
-cd aur
-
-# Install build dependencies
-sudo pacman -S base-devel nodejs npm electron desktop-file-utils xdg-utils
-
-# Build the package
-makepkg -s
-
-# Install the built package
-sudo pacman -U perplexity-*.pkg.tar.zst
-```
-
-</details>
-
-### 📊 Technical Specifications
+## Technical Specifications
 
 | Component | Version | Description |
 |-----------|---------|-------------|
-| **Electron** | System (latest) | Uses system-provided Electron (Arch package) |
-| **Target Electron** | 38.1.0 | Version used in upstream development |
-| **Node.js** | Latest | JavaScript runtime |
+| **Electron** | System package | Uses system-provided Electron (Arch package) |
+| **Target Electron** | 38.2.0 | Version used in upstream development |
 | **ToDesktop Runtime** | ^2.1.2 | Additional capabilities |
-| **Package Version** | 1.4.0 | Current application version |
+| **Package Version** | 1.5.1 | Current application version |
 
 > **Note:** You can use a specific Electron version by setting `ELECTRON_CUSTOM_BIN` in the configuration file.
 
 ---
 
-## 📚 Documentation
-
-- 📖 [Project Architecture](docs/architecture.md)
-- ⚙️ [CI/CD for AUR](docs/CI_CD_AUR.md)
-- 🔍 [Security Audit](docs/audit.md)
-
----
-
-## 🤝 Contributing
+## Contributing
 
 <div align="center">
 
-### We welcome your contributions! 🎉
+### Contributions are welcome
 
 [![Contributors](https://img.shields.io/github/contributors/mazixs/perplexity?style=for-the-badge)](https://github.com/mazixs/perplexity/graphs/contributors)
 [![Issues](https://img.shields.io/github/issues/mazixs/perplexity?style=for-the-badge)](https://github.com/mazixs/perplexity/issues)
@@ -275,32 +182,33 @@ sudo pacman -U perplexity-*.pkg.tar.zst
 
 </div>
 
-### 🚀 How to Help the Project
+### How to Help the Project
 
-- 🐛 **Report bugs** — create issues with detailed descriptions
-- 💡 **Suggest improvements** — share ideas in discussions
-- 🔧 **Submit Pull Requests** — fixes and new features
-- ⭐ **Star the project** — help the project become more popular
-- 📢 **Tell your friends** — spread the word about the project
+- Report bugs with reproducible steps
+- Suggest improvements in discussions
+- Submit pull requests with focused changes
+- Star the project
 
 ---
 
-## 📜 License
+## License
 
 <div align="center">
 
-**Apache License 2.0**
+**Mixed licensing (important)**
 
-This project is distributed under the Apache 2.0 license.  
-Details in the [LICENSE](LICENSE) file.
+- Upstream Perplexity application files synced from AppImage: **UNLICENSED** (upstream terms).
+- Repository-authored wrapper/integration files (AUR packaging, launcher, CI): **Apache-2.0**.
 
-[![License](https://img.shields.io/github/license/mazixs/perplexity?style=for-the-badge&color=green)](LICENSE)
+See full scope details in the [LICENSE](LICENSE) file.
+
+[![License Scope](https://img.shields.io/badge/License-Mixed%20(UNLICENSED%20upstream%20%2B%20Apache--2.0%20wrapper)-blue?style=for-the-badge)](LICENSE)
 
 ---
 
 <p align="center">
-  <strong>Made with ❤️ for the Linux community</strong><br>
-  <em>Perplexity Native • 2025</em>
+  <strong>Perplexity Native for Linux</strong><br>
+  <em>Maintained by mazixs • 2026</em>
 </p>
 
 </div>

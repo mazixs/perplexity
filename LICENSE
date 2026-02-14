@@ -1,3 +1,32 @@
+Perplexity Native (Linux Wrapper) — Licensing Scope Notice
+===========================================================
+
+This repository contains a mix of:
+
+1) Upstream Perplexity application code/assets, synchronized from the official
+   AppImage release (for example, Perplexity 1.5.1).
+
+   Upstream manifest evidence:
+   - resources/app.asar -> package.json
+   - "name": "Perplexity"
+   - "version": "1.5.1"
+   - "license": "UNLICENSED"
+
+   These upstream files are NOT relicensed by this repository.
+   All rights for upstream Perplexity code, assets, and trademarks belong to
+   their respective owners and are governed by upstream terms.
+
+2) Repository-authored wrapper/integration files (launcher, packaging,
+   automation, docs, and related glue code).
+
+   These repository-authored files are licensed under Apache License 2.0,
+   whose full text starts below.
+
+If a file is copied/synced from upstream Perplexity artifacts, treat it as
+upstream-licensed content (UNLICENSED unless upstream states otherwise).
+
+---
+
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/

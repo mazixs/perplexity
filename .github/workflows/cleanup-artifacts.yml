@@ -13,24 +13,25 @@ permissions:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Delete old artifacts
         uses: actions/github-script@v8
         with:
           script: |
-            const artifacts = await github.rest.actions.listArtifactsForRepo({
+            const artifacts = await github.paginate(github.rest.actions.listArtifactsForRepo, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               per_page: 100
             });
             
-            console.log(`Found ${artifacts.data.artifacts.length} total artifacts`);
+            console.log(`Found ${artifacts.length} total artifacts`);
             
             // Delete artifacts older than 7 days
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() - 7);
             
-            const oldArtifacts = artifacts.data.artifacts
+            const oldArtifacts = artifacts
               .filter(artifact => new Date(artifact.created_at) < cutoffDate);
             
             console.log(`Found ${oldArtifacts.length} artifacts older than 7 days`);
@@ -49,16 +50,16 @@ jobs:
               }
             }
             
-            // Also keep only the 5 most recent perplexity-pkg artifacts
-            const perplexityArtifacts = artifacts.data.artifacts
-              .filter(artifact => artifact.name.startsWith('perplexity-pkg-'))
+            // Also keep only the 5 most recent build artifacts from this workflow
+            const archPkgArtifacts = artifacts
+              .filter(artifact => artifact.name === 'arch-pkg')
               .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
               .slice(5); // Keep only 5 most recent
             
-            console.log(`Found ${perplexityArtifacts.length} old perplexity-pkg artifacts to delete`);
+            console.log(`Found ${archPkgArtifacts.length} old arch-pkg artifacts to delete`);
             
-            for (const artifact of perplexityArtifacts) {
-              console.log(`Deleting old perplexity artifact: ${artifact.name}`);
+            for (const artifact of archPkgArtifacts) {
+              console.log(`Deleting old arch-pkg artifact: ${artifact.name}`);
               try {
                 await github.rest.actions.deleteArtifact({
                   owner: context.repo.owner,
@@ -76,4 +77,4 @@ jobs:
           echo "🧹 Artifact cleanup completed"
           echo "📅 Cleanup date: $(date)"
           echo "ℹ️  Artifacts older than 7 days have been removed"
-          echo "ℹ️  Only 5 most recent perplexity-pkg artifacts are kept"
+          echo "ℹ️  Only 5 most recent arch-pkg artifacts are kept"

@@ -1,11 +1,12 @@
 pkgbase = perplexity
 	pkgdesc = Native Perplexity AI client for Linux
-	pkgver = 1.3.0
-	pkgrel = 2
+	pkgver = 1.5.1
+	pkgrel = 1
 	url = https://github.com/mazixs/perplexity
 	install = perplexity.install
 	arch = x86_64
-	license = Apache 2.0
+	license = custom:UNLICENSED-upstream
+	license = Apache-2.0
 	makedepends = git
 	makedepends = npm
 	depends = electron
