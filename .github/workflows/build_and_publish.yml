@@ -96,6 +96,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: aur-metadata
+          include-hidden-files: true
           path: |
             ${{ env.PKG_DIR }}/PKGBUILD
             ${{ env.PKG_DIR }}/.SRCINFO
