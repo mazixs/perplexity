@@ -38,6 +38,8 @@ node_modules/
 # Локальные настройки IDE
 .vscode/
 .idea/
+.codex
+AGENTS.md
 
 # Системные файлы
 .DS_Store

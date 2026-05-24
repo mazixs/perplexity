@@ -1,0 +1,267 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  PKG_DIR: aur
+  AUR_BUNDLE_DIR: aur_bundle
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: archlinux:base-devel
+    outputs:
+      pkgver: ${{ steps.version.outputs.pkgver }}
+      pkgrel: ${{ steps.version.outputs.pkgrel }}
+      package_version: ${{ steps.version.outputs.package_version }}
+      previous_tag: ${{ steps.previous_tag.outputs.previous_tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Prepare Arch toolchain
+        run: |
+          pacman -Syu --noconfirm archlinux-keyring gnupg
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -S --noconfirm --needed git sudo namcap
+
+      - name: Create builder user
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+          mkdir -p /home/builder/.npm
+          chown -R builder:builder "$GITHUB_WORKSPACE" /home/builder
+
+      - name: Verify .SRCINFO is up to date
+        run: |
+          set -euo pipefail
+          tmpfile="$(mktemp)"
+          sudo -u builder env HOME=/home/builder bash -lc "cd '$GITHUB_WORKSPACE/$PKG_DIR' && makepkg --printsrcinfo" > "$tmpfile"
+          diff -u "$PKG_DIR/.SRCINFO" "$tmpfile"
+
+      - name: Lint PKGBUILD
+        run: |
+          cd "$PKG_DIR"
+          namcap PKGBUILD
+
+      - name: Read package version
+        id: version
+        run: |
+          set -euo pipefail
+          pkgver="$(sed -n 's/^pkgver=//p' "$PKG_DIR/PKGBUILD")"
+          pkgrel="$(sed -n 's/^pkgrel=//p' "$PKG_DIR/PKGBUILD")"
+          package_version="${pkgver}-${pkgrel}"
+          expected_tag="v${package_version}"
+          if [ "${GITHUB_REF_NAME}" != "${expected_tag}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package version ${expected_tag}" >&2
+            exit 1
+          fi
+          {
+            echo "pkgver=${pkgver}"
+            echo "pkgrel=${pkgrel}"
+            echo "package_version=${package_version}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Find previous release tag
+        id: previous_tag
+        run: |
+          set -euo pipefail
+          previous_tag="$(git tag --sort=-version:refname | grep '^v' | grep -Fxv "${GITHUB_REF_NAME}" | head -n1 || true)"
+          echo "previous_tag=${previous_tag}" >> "$GITHUB_OUTPUT"
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: validate
+    container:
+      image: archlinux:base-devel
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Prepare Arch toolchain
+        run: |
+          pacman -Syu --noconfirm archlinux-keyring gnupg
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -S --noconfirm --needed git sudo
+
+      - name: Create builder user
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+          mkdir -p /home/builder/.npm
+          chown -R builder:builder "$GITHUB_WORKSPACE" /home/builder
+
+      - name: Patch PKGBUILD with tagged commit sha
+        run: |
+          cd "$PKG_DIR"
+          sed -i "s|<COMMIT>|${GITHUB_SHA}|g" PKGBUILD
+
+      - name: Build package
+        run: |
+          cd "$PKG_DIR"
+          sudo -u builder env HOME=/home/builder makepkg --syncdeps --clean --cleanbuild --noconfirm --force
+
+      - name: Generate release .SRCINFO
+        run: |
+          set -euo pipefail
+          cd "$PKG_DIR"
+          sudo -u builder env HOME=/home/builder makepkg --printsrcinfo > .SRCINFO
+
+      - name: Prepare AUR bundle
+        run: |
+          set -euo pipefail
+          mkdir -p "$AUR_BUNDLE_DIR"
+          cp "$PKG_DIR/PKGBUILD" "$AUR_BUNDLE_DIR/PKGBUILD"
+          cp "$PKG_DIR/.SRCINFO" "$AUR_BUNDLE_DIR/.SRCINFO"
+          cp "$PKG_DIR/default.conf" "$AUR_BUNDLE_DIR/default.conf"
+          cp "$PKG_DIR/launcher.sh" "$AUR_BUNDLE_DIR/launcher.sh"
+          cp "$PKG_DIR/perplexity.desktop" "$AUR_BUNDLE_DIR/perplexity.desktop"
+          cp "$PKG_DIR/perplexity.install" "$AUR_BUNDLE_DIR/perplexity.install"
+          cp "$PKG_DIR/perplexity.png" "$AUR_BUNDLE_DIR/perplexity.png"
+
+      - name: Upload release package
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-package
+          path: ${{ env.PKG_DIR }}/*.pkg.tar.zst
+          retention-days: 7
+
+      - name: Upload AUR bundle
+        uses: actions/upload-artifact@v6
+        with:
+          name: aur-bundle
+          include-hidden-files: true
+          path: ${{ env.AUR_BUNDLE_DIR }}
+          retention-days: 7
+
+  publish-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs:
+      - validate
+      - build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download package artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: release-package
+          path: dist
+
+      - name: Generate release notes preface
+        env:
+          PREVIOUS_TAG: ${{ needs.validate.outputs.previous_tag }}
+        run: |
+          set -euo pipefail
+          range="${GITHUB_REF_NAME}"
+          if [ -n "${PREVIOUS_TAG}" ]; then
+            range="${PREVIOUS_TAG}..${GITHUB_REF_NAME}"
+          fi
+
+          {
+            echo "## Release Summary"
+            echo
+            echo "- Version: \`${GITHUB_REF_NAME}\`"
+            if [ -n "${PREVIOUS_TAG}" ]; then
+              echo "- Previous tag: \`${PREVIOUS_TAG}\`"
+              echo "- Compare: https://github.com/${GITHUB_REPOSITORY}/compare/${PREVIOUS_TAG}...${GITHUB_REF_NAME}"
+            else
+              echo "- Previous tag: first published release"
+            fi
+            echo
+            echo "## Changes in this tag"
+            echo
+          } > RELEASE_BODY.md
+
+          if [ -n "${PREVIOUS_TAG}" ]; then
+            changes="$(git log --no-merges --pretty='- %s (%h)' "${range}")"
+          else
+            changes="$(git log --no-merges --pretty='- %s (%h)' "${GITHUB_REF_NAME}")"
+          fi
+
+          if [ -n "${changes}" ]; then
+            printf '%s\n' "${changes}" >> RELEASE_BODY.md
+          else
+            echo "- No commit summary available for this range." >> RELEASE_BODY.md
+          fi
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Perplexity ${{ github.ref_name }}
+          body_path: RELEASE_BODY.md
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          files: dist/*.pkg.tar.zst
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  push-aur:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs:
+      - validate
+      - build
+      - publish-release
+
+    steps:
+      - name: Download AUR bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: aur-bundle
+          path: aur_bundle
+
+      - name: Setup SSH for AUR
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan -t ed25519,rsa aur.archlinux.org >> ~/.ssh/known_hosts
+
+      - name: Clone AUR repository
+        run: |
+          git -c core.sshCommand='ssh -i ~/.ssh/aur' clone ssh://aur@aur.archlinux.org/perplexity.git aur_repo
+
+      - name: Sync and push AUR repository
+        run: |
+          set -euo pipefail
+          cp -a aur_bundle/. aur_repo/
+          cd aur_repo
+
+          git add PKGBUILD .SRCINFO default.conf launcher.sh perplexity.desktop perplexity.install perplexity.png
+
+          if git diff --cached --quiet; then
+            echo "AUR is already in sync"
+            exit 0
+          fi
+
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git commit -m "Release ${GITHUB_REF_NAME} (sha ${GITHUB_SHA})"
+          git -c core.sshCommand='ssh -i ~/.ssh/aur' push origin master || git -c core.sshCommand='ssh -i ~/.ssh/aur' push origin main

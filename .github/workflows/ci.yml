@@ -1,0 +1,67 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PKG_DIR: aur
+  SOURCE_REPO_URL: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.clone_url || format('https://github.com/{0}.git', github.repository) }}
+  SOURCE_COMMIT_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  build-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container:
+      image: archlinux:base-devel
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Prepare Arch toolchain
+        run: |
+          pacman -Syu --noconfirm archlinux-keyring gnupg
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -S --noconfirm --needed git sudo namcap
+
+      - name: Create builder user
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+          mkdir -p /home/builder/.npm
+          chown -R builder:builder "$GITHUB_WORKSPACE" /home/builder
+
+      - name: Verify .SRCINFO is up to date
+        run: |
+          set -euo pipefail
+          tmpfile="$(mktemp)"
+          sudo -u builder env HOME=/home/builder bash -lc "cd '$GITHUB_WORKSPACE/$PKG_DIR' && makepkg --printsrcinfo" > "$tmpfile"
+          diff -u "$PKG_DIR/.SRCINFO" "$tmpfile"
+
+      - name: Lint PKGBUILD
+        run: |
+          cd "$PKG_DIR"
+          namcap PKGBUILD
+
+      - name: Patch PKGBUILD with current commit sha
+        run: |
+          cd "$PKG_DIR"
+          sed -i "s|git+https://github.com/mazixs/perplexity.git#commit=\${commit}|git+${SOURCE_REPO_URL}#commit=${SOURCE_COMMIT_SHA}|" PKGBUILD
+          sed -i "s|<COMMIT>|${SOURCE_COMMIT_SHA}|g" PKGBUILD
+
+      - name: Build package
+        run: |
+          cd "$PKG_DIR"
+          sudo -u builder env HOME=/home/builder makepkg --syncdeps --clean --cleanbuild --noconfirm --force

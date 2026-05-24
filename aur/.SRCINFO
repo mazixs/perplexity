@@ -1,7 +1,7 @@
 pkgbase = perplexity
 	pkgdesc = Native Perplexity AI client for Linux
-	pkgver = 1.5.1
-	pkgrel = 2
+	pkgver = 1.6.0
+	pkgrel = 1
 	url = https://github.com/mazixs/perplexity
 	install = perplexity.install
 	arch = x86_64

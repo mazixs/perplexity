@@ -11,7 +11,7 @@
 *Electron-based launcher with Arch/AUR packaging*
 
 [![AUR Version](https://img.shields.io/aur/version/perplexity?style=for-the-badge&logo=archlinux&logoColor=white&color=1793d1)](https://aur.archlinux.org/packages/perplexity)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/mazixs/perplexity/build_and_publish.yml?style=for-the-badge&logo=github&logoColor=white)](https://github.com/mazixs/perplexity/actions)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/mazixs/perplexity/ci.yml?style=for-the-badge&logo=github&logoColor=white)](https://github.com/mazixs/perplexity/actions)
 [![License Scope](https://img.shields.io/badge/License-Mixed%20(UNLICENSED%20upstream%20%2B%20Apache--2.0%20wrapper)-blue?style=for-the-badge)](LICENSE)
 [![Electron](https://img.shields.io/badge/Electron-38.2.0%20target-47848f?style=for-the-badge&logo=electron&logoColor=white)](https://electronjs.org/)
 
@@ -44,8 +44,11 @@ perplexity/
 │   ├── perplexity.desktop     # Desktop entry
 │   └── default.conf           # Default runtime config
 ├── .github/workflows/          # CI/CD automation
-│   ├── build_and_publish.yml  # Build, release, AUR push
+│   ├── ci.yml                 # Validation and package build checks
+│   ├── release.yml            # Tag-driven GitHub Release + AUR publish
+│   ├── build_and_publish.yml  # Legacy manual fallback workflow
 │   └── cleanup-artifacts.yml  # Artifact retention cleanup
+├── native-build/               # Portable native test bundle builder
 └── usr/                        # Linux system files
     ├── bin/perplexity         # Executable file
     └── share/                 # Resources (icons, desktop files)
@@ -149,13 +152,39 @@ ELECTRON_ARGS="--disable-web-security --disable-features=VizDisplayCompositor"
 
 ## CI/CD
 
-Pipeline jobs in `.github/workflows/build_and_publish.yml`:
+Active workflows:
 
-- `build-package`: build `.pkg.tar.zst` + generate `.SRCINFO`
-- `publish-release`: publish GitHub Release with package artifact
-- `push-aur`: sync PKGBUILD/.SRCINFO/assets to AUR
+- `ci.yml`: validates `.SRCINFO`, runs `namcap PKGBUILD`, and builds the Arch package on `pull_request` and `push` to `main`
+- `release.yml`: runs only on version tags, creates the GitHub Release, and then syncs the full `aur/` bundle to AUR
+- `build_and_publish.yml`: legacy manual-only placeholder kept during the migration
 
-Note: commit pinning in `aur/PKGBUILD` is injected in CI.
+### Release Flow
+
+The release version always comes from `aur/PKGBUILD` (`pkgver` + `pkgrel`).
+
+Create the tag with the local preflight script:
+
+```bash
+./release.sh
+git push origin main --follow-tags
+```
+
+`release.sh` checks that the working tree is clean, `HEAD` matches `origin/main`, `.SRCINFO` is current, and the tag `v<pkgver>-<pkgrel>` does not already exist.
+
+`release.yml` then validates the tag, builds the package in an Arch container, publishes the GitHub release with generated notes, injects the tagged commit SHA into `aur/PKGBUILD`, regenerates `.SRCINFO`, and pushes the updated AUR files.
+
+If you create the tag locally and need to abort before pushing it, delete it with `git tag -d v<pkgver>-<pkgrel>`.
+
+## Native Test Build
+
+For local testing, `native-build/build.sh` creates a portable bundle that includes the app sources, production dependencies, the locally installed Electron runtime, and an isolated `state/` directory for config/cache/data.
+
+```bash
+./native-build/build.sh
+./native-build/dist/perplexity-native-1.5.1-2.run --target /tmp/perplexity-test
+```
+
+The generated `.run` installer extracts a self-contained test build and keeps Perplexity settings inside the installed bundle by default.
 
 ## Technical Specifications
 

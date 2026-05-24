@@ -1,6 +1,6 @@
 {
   "name": "Perplexity",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "description": "",
   "main": "main.js",
   "author": "Perplexity <ali.shobeiri@perplexity.ai>",
@@ -9,9 +9,9 @@
     "@todesktop/plugin-ipc": "^0.11.0",
     "@todesktop/runtime": "^2.1.2"
   },
-  "desktopifyServerVersion": "1.606.0",
+  "desktopifyServerVersion": "1.613.1",
   "productName": "Perplexity",
   "repository": "https://github.com/ToDesktop/desktopify/",
   "electronVersion": "38.2.0",
-  "desktopifyVersion": "6.27.0"
+  "desktopifyVersion": "6.29.0"
 }

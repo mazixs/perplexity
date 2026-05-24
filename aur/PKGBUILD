@@ -1,8 +1,8 @@
 # Maintainer: mazix <mazix@bk.ru>
 
 pkgname=perplexity
-pkgver=1.5.1
-pkgrel=2
+pkgver=1.6.0
+pkgrel=1
 commit='<COMMIT>'
 pkgdesc='Native Perplexity AI client for Linux'
 arch=('x86_64')
